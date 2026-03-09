@@ -1,0 +1,95 @@
+# Developer Workflow
+
+## Getting Started
+
+The system works with zero external services using in-memory/mock implementations.
+
+```bash
+# Run a query (no data, returns "no results")
+uv run rag ask "what is machine learning?"
+
+# JSON output
+uv run rag --json ask "what is machine learning?"
+
+# Debug mode (full pipeline JSON)
+uv run rag debug-query "what is machine learning?"
+```
+
+## Testing
+
+```bash
+# Run all tests
+uv run pytest tests/ -v
+
+# Run specific test files
+uv run pytest tests/unit/test_query_orchestrator.py -v
+
+# Lint
+uv run ruff check .
+
+# Type check
+uv run mypy orchestrators/ apps/cli/ --strict
+```
+
+## Configuration
+
+### Environment Variables
+
+All external services are configured via `DRIFTER_*` env vars. When not set, in-memory fallbacks are used.
+
+| Variable | Service |
+|----------|---------|
+| `DRIFTER_QDRANT_HOST` | Qdrant vector store |
+| `DRIFTER_OPENSEARCH_HOSTS` | OpenSearch lexical/vector store |
+| `DRIFTER_TEI_BASE_URL` | Text Embeddings Inference |
+| `DRIFTER_VLLM_BASE_URL` | vLLM generation |
+| `DRIFTER_OTEL_ENDPOINT` | OpenTelemetry collector |
+
+### CLI Overrides
+
+Non-secret config can be overridden at runtime:
+
+```bash
+uv run rag --config token_budget=5000 ask "query"
+uv run rag --config reranker_top_n=10 rerank "query"
+```
+
+Secret fields (`api_key`, `password`, `auth`, `secret`) cannot be set via `--config` for security.
+
+## Pipeline Stages
+
+Each stage can be run independently:
+
+```bash
+# Retrieval only
+uv run rag retrieve "query" --mode dense --top-k 10
+
+# Retrieval + reranking
+uv run rag rerank "query" --top-k 10
+
+# Retrieval + reranking + context
+uv run rag build-context "query" --token-budget 2000
+
+# Full pipeline
+uv run rag ask "query"
+```
+
+## Evaluation
+
+```bash
+# Run evaluation against a dataset
+uv run rag evaluate --dataset eval_data.json --k 5,10,20
+
+# Run experiment
+uv run rag experiment run --config experiment.json --hypothesis "Hybrid beats dense"
+```
+
+## Trace IDs
+
+Every command generates a trace ID (visible in stderr). Use `--trace` to set a specific one:
+
+```bash
+uv run rag --trace my-debug-123 ask "query"
+```
+
+Trace IDs propagate through all pipeline stages and appear in all observability spans.
