@@ -15,7 +15,7 @@ from libs.indexing.protocols import (
     LexicalIndexWriter,
     VectorIndexWriter,
 )
-from libs.resilience import is_transient_error
+from libs.resilience import RetryConfig, is_transient_error, resilient_call
 
 logger = logging.getLogger(__name__)
 
@@ -37,12 +37,14 @@ class IndexingService:
         embedding_repo: EmbeddingRepository,
         vector_writer: VectorIndexWriter,
         lexical_writer: LexicalIndexWriter,
+        retry_config: RetryConfig | None = None,
     ) -> None:
         self._embedding_provider = embedding_provider
         self._chunk_repo = chunk_repo
         self._embedding_repo = embedding_repo
         self._vector_writer = vector_writer
         self._lexical_writer = lexical_writer
+        self._retry_config = retry_config
 
     def run(self, chunks: list[Chunk], run_id: RunId) -> IndexingResult:
         """Execute an indexing run for the given chunks.
@@ -85,7 +87,17 @@ class IndexingService:
         new_embeddings = []
         if to_embed:
             try:
-                new_embeddings = self._embedding_provider.embed_chunks(to_embed)
+                if self._retry_config is not None:
+                    outcome = resilient_call(
+                        lambda: self._embedding_provider.embed_chunks(to_embed),
+                        self._retry_config,
+                    )
+                    if outcome.succeeded:
+                        new_embeddings = outcome.value  # type: ignore[assignment]
+                    else:
+                        raise outcome.exception  # type: ignore[misc]
+                else:
+                    new_embeddings = self._embedding_provider.embed_chunks(to_embed)
             except Exception as exc:
                 logger.error("indexing: embedding failed run_id=%s: %s", run_id, exc)
                 errors.append(f"Embedding failed: {exc}")
@@ -133,7 +145,21 @@ class IndexingService:
                 all_embeddings.append(emb)
 
         try:
-            vector_count = self._vector_writer.write_batch(all_embeddings, chunks)
+            if self._retry_config is not None:
+                outcome = resilient_call(
+                    lambda: self._vector_writer.write_batch(
+                        all_embeddings, chunks,
+                    ),
+                    self._retry_config,
+                )
+                if outcome.succeeded:
+                    vector_count = outcome.value  # type: ignore[assignment]
+                else:
+                    raise outcome.exception  # type: ignore[misc]
+            else:
+                vector_count = self._vector_writer.write_batch(
+                    all_embeddings, chunks,
+                )
         except Exception as exc:
             classification = _classify_error(exc)
             logger.error("indexing: vector_index failed run_id=%s: %s", run_id, exc)
@@ -151,7 +177,17 @@ class IndexingService:
 
         # Step 7: write to lexical index
         try:
-            lexical_count = self._lexical_writer.write_batch(chunks)
+            if self._retry_config is not None:
+                outcome = resilient_call(
+                    lambda: self._lexical_writer.write_batch(chunks),
+                    self._retry_config,
+                )
+                if outcome.succeeded:
+                    lexical_count = outcome.value  # type: ignore[assignment]
+                else:
+                    raise outcome.exception  # type: ignore[misc]
+            else:
+                lexical_count = self._lexical_writer.write_batch(chunks)
         except Exception as exc:
             classification = _classify_error(exc)
             logger.error("indexing: lexical_index failed run_id=%s: %s", run_id, exc)

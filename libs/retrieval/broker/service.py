@@ -9,7 +9,7 @@ from typing import Any
 
 from libs.contracts.common import RetrievalMethod
 from libs.contracts.retrieval import RetrievalCandidate, RetrievalQuery
-from libs.resilience import is_transient_error
+from libs.resilience import RetryConfig, is_transient_error, resilient_call
 from libs.retrieval.broker.dedup import apply_source_caps
 from libs.retrieval.broker.fusion import reciprocal_rank_fusion
 from libs.retrieval.broker.models import (
@@ -47,12 +47,14 @@ class RetrievalBroker:
         query_embedder: QueryEmbedder,
         config: BrokerConfig | None = None,
         normalizer: QueryNormalizer | None = None,
+        retry_config: RetryConfig | None = None,
     ) -> None:
         self._vector_store = vector_store
         self._lexical_store = lexical_store
         self._query_embedder = query_embedder
         self._config = config or BrokerConfig()
         self._normalizer = normalizer or PassthroughNormalizer()
+        self._retry_config = retry_config
 
     def run(self, query: RetrievalQuery) -> BrokerResult:
         """Execute a retrieval run: normalize → fanout → fuse → cap → return."""
@@ -199,15 +201,32 @@ class RetrievalBroker:
         )
 
     def _fanout_dense(
-        self, query: RetrievalQuery
+        self, query: RetrievalQuery,
     ) -> tuple[StoreResult, list[float] | None]:
-        """Execute dense retrieval via the vector store."""
+        """Execute dense retrieval via the vector store, with optional retry."""
         t0 = time.monotonic()
+
+        def _do_dense() -> tuple[list[RetrievalCandidate], list[float]]:
+            qv = self._query_embedder.embed_query(query.normalized_query)
+            return self._vector_store.search(query, qv), qv
+
         try:
-            query_vector = self._query_embedder.embed_query(query.normalized_query)
-            candidates = self._vector_store.search(query, query_vector)
+            if self._retry_config is not None:
+                outcome = resilient_call(
+                    _do_dense, self._retry_config,
+                )
+                if outcome.succeeded:
+                    candidates, query_vector = outcome.value  # type: ignore[misc]
+                else:
+                    raise outcome.exception  # type: ignore[misc]
+            else:
+                candidates, query_vector = _do_dense()
+
             elapsed = (time.monotonic() - t0) * 1000
-            if self._config.fanout_timeout_ms > 0 and elapsed > self._config.fanout_timeout_ms:
+            if (
+                self._config.fanout_timeout_ms > 0
+                and elapsed > self._config.fanout_timeout_ms
+            ):
                 return StoreResult(
                     store_id=self._vector_store.store_id,
                     retrieval_method=RetrievalMethod.DENSE,
@@ -216,7 +235,8 @@ class RetrievalBroker:
                     latency_ms=elapsed,
                     error=(
                         f"dense fanout exceeded timeout"
-                        f" ({elapsed:.0f}ms > {self._config.fanout_timeout_ms}ms)"
+                        f" ({elapsed:.0f}ms >"
+                        f" {self._config.fanout_timeout_ms}ms)"
                     ),
                     error_classification=ErrorClassification.TRANSIENT,
                 ), query_vector
@@ -231,8 +251,11 @@ class RetrievalBroker:
             elapsed = (time.monotonic() - t0) * 1000
             classification = _classify_error(exc)
             logger.error(
-                "broker: dense fanout exception store=%s classification=%s: %s",
-                self._vector_store.store_id, classification.value, exc,
+                "broker: dense fanout exception store=%s"
+                " classification=%s: %s",
+                self._vector_store.store_id,
+                classification.value,
+                exc,
             )
             return StoreResult(
                 store_id=self._vector_store.store_id,
@@ -240,17 +263,37 @@ class RetrievalBroker:
                 candidates=[],
                 candidate_count=0,
                 latency_ms=elapsed,
-                error=f"store={self._vector_store.store_id} trace_id={query.trace_id}: {exc}",
+                error=(
+                    f"store={self._vector_store.store_id}"
+                    f" trace_id={query.trace_id}: {exc}"
+                ),
                 error_classification=classification,
             ), None
 
     def _fanout_lexical(self, query: RetrievalQuery) -> StoreResult:
-        """Execute lexical retrieval via the lexical store."""
+        """Execute lexical retrieval via the lexical store, with optional retry."""
         t0 = time.monotonic()
+
+        def _do_lexical() -> list[RetrievalCandidate]:
+            return self._lexical_store.search(query)
+
         try:
-            candidates = self._lexical_store.search(query)
+            if self._retry_config is not None:
+                outcome = resilient_call(
+                    _do_lexical, self._retry_config,
+                )
+                if outcome.succeeded:
+                    candidates = outcome.value  # type: ignore[assignment]
+                else:
+                    raise outcome.exception  # type: ignore[misc]
+            else:
+                candidates = _do_lexical()
+
             elapsed = (time.monotonic() - t0) * 1000
-            if self._config.fanout_timeout_ms > 0 and elapsed > self._config.fanout_timeout_ms:
+            if (
+                self._config.fanout_timeout_ms > 0
+                and elapsed > self._config.fanout_timeout_ms
+            ):
                 return StoreResult(
                     store_id=self._lexical_store.store_id,
                     retrieval_method=RetrievalMethod.LEXICAL,
@@ -259,7 +302,8 @@ class RetrievalBroker:
                     latency_ms=elapsed,
                     error=(
                         f"lexical fanout exceeded timeout"
-                        f" ({elapsed:.0f}ms > {self._config.fanout_timeout_ms}ms)"
+                        f" ({elapsed:.0f}ms >"
+                        f" {self._config.fanout_timeout_ms}ms)"
                     ),
                     error_classification=ErrorClassification.TRANSIENT,
                 )
@@ -274,8 +318,11 @@ class RetrievalBroker:
             elapsed = (time.monotonic() - t0) * 1000
             classification = _classify_error(exc)
             logger.error(
-                "broker: lexical fanout exception store=%s classification=%s: %s",
-                self._lexical_store.store_id, classification.value, exc,
+                "broker: lexical fanout exception store=%s"
+                " classification=%s: %s",
+                self._lexical_store.store_id,
+                classification.value,
+                exc,
             )
             return StoreResult(
                 store_id=self._lexical_store.store_id,
@@ -283,6 +330,9 @@ class RetrievalBroker:
                 candidates=[],
                 candidate_count=0,
                 latency_ms=elapsed,
-                error=f"store={self._lexical_store.store_id} trace_id={query.trace_id}: {exc}",
+                error=(
+                    f"store={self._lexical_store.store_id}"
+                    f" trace_id={query.trace_id}: {exc}"
+                ),
                 error_classification=classification,
             )

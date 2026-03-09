@@ -56,6 +56,7 @@ from libs.parsing.parsers.markdown import MarkdownParser
 from libs.parsing.parsers.plain_text import PlainTextParser
 from libs.reranking.feature_reranker import FeatureBasedReranker
 from libs.reranking.service import RerankerService
+from libs.resilience import RetryConfig
 from libs.retrieval.broker.models import BrokerConfig
 from libs.retrieval.broker.service import RetrievalBroker
 from orchestrators.ingestion import IngestionOrchestrator
@@ -155,6 +156,19 @@ def create_registry(overrides: dict[str, Any] | None = None) -> ServiceRegistry:
     if isinstance(query_embedder, Connectable):
         query_embedder.connect()
 
+    # --- Retry config (optional) ---
+    retry_max = int(overrides.get("retry.max_retries", 0))
+    retry_config: RetryConfig | None = None
+    if retry_max > 0:
+        retry_config = RetryConfig(
+            max_retries=retry_max,
+            base_delay_s=float(overrides.get("retry.base_delay_s", 0.5)),
+            max_delay_s=float(overrides.get("retry.max_delay_s", 30.0)),
+            jitter_factor=float(
+                overrides.get("retry.jitter_factor", 0.5),
+            ),
+        )
+
     # --- Retrieval broker ---
     broker_config = BrokerConfig(
         lexical_weight=float(overrides.get("lexical_weight", 1.5)),
@@ -164,6 +178,7 @@ def create_registry(overrides: dict[str, Any] | None = None) -> ServiceRegistry:
         lexical_store=lexical_store,
         query_embedder=query_embedder,
         config=broker_config,
+        retry_config=retry_config,
     )
 
     # --- Reranking (TEI > HuggingFace > FeatureBasedReranker) ---
@@ -231,6 +246,7 @@ def create_registry(overrides: dict[str, Any] | None = None) -> ServiceRegistry:
         embedding_repo=embedding_repo,
         vector_writer=vector_writer,
         lexical_writer=lexical_writer,
+        retry_config=retry_config,
     )
 
     # --- Ingestion orchestrator ---
