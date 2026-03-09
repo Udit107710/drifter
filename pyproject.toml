@@ -27,6 +27,9 @@ adapters = [
     "psycopg[binary]>=3.1",
     "boto3>=1.34",
 ]
+tokenizers = [
+    "tiktoken>=0.7",
+]
 observability = [
     "opentelemetry-api>=1.24",
     "opentelemetry-sdk>=1.24",

@@ -32,7 +32,9 @@ When no env vars are set, all services use in-memory/mock implementations. Produ
 
 **LLM provider priority**: OpenRouter (`DRIFTER_OPENROUTER_API_KEY`) is preferred over OpenAI (`DRIFTER_OPENAI_API_KEY`), then Gemini (`DRIFTER_GEMINI_API_KEY`), then vLLM (`DRIFTER_VLLM_URL`). If none is set, `MockGenerator` is used.
 
-**Reranker priority**: When `DRIFTER_TEI_RERANKER_URL` is set and the TEI server is reachable, `TeiCrossEncoderReranker` is used for neural reranking. Otherwise, `FeatureBasedReranker` is used as a local fallback.
+**Reranker priority**: When `DRIFTER_TEI_RERANKER_URL` is set and the TEI server is reachable, `TeiCrossEncoderReranker` is used for neural reranking. Otherwise, if `DRIFTER_HF_TOKEN` is set and the HuggingFace Inference API is reachable, `HuggingFaceReranker` is used. Final fallback is `FeatureBasedReranker` (local, no external calls).
+
+**Token counting**: The bootstrap automatically uses `TiktokenTokenCounter` (accurate BPE token counts) when tiktoken is installed, falling back to `WhitespaceTokenCounter` otherwise. Install tiktoken with `uv sync --extra tokenizers`.
 
 **Default tuning**: Token budget is 5000, lexical RRF weight is 1.5, and `max_chunks_per_source=2` in the context builder to ensure source diversity.
 
@@ -73,6 +75,7 @@ See [CLI Commands](cli_commands.md) for the full command reference.
 
 ## Design Principles
 
+- **Adapter lifecycle via protocols** — the bootstrap uses `isinstance(obj, Connectable)` and `isinstance(obj, HealthCheckable)` (from `libs/adapters/protocols.py`) instead of `hasattr` checks, maintaining type safety throughout the composition root.
 - **Orchestrators import only protocols and contracts** from `libs/`. No concrete adapter imports.
 - **CLI handlers are thin** — parse args, call orchestrator, render output. No business logic.
 - **Trace ID flows everywhere** — from CLI args → orchestrator → every service → every span.

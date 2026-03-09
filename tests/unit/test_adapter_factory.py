@@ -29,8 +29,11 @@ from libs.adapters.otel import OtelSpanExporter
 from libs.adapters.qdrant import QdrantVectorStore
 from libs.adapters.tei import TeiCrossEncoderReranker, TeiEmbeddingProvider, TeiQueryEmbedder
 from libs.adapters.vllm import VllmGenerator
+from libs.embeddings.protocols import EmbeddingProvider
 from libs.generation.mock_generator import MockGenerator
 from libs.observability.collector import NoOpCollector, SpanCollector
+from libs.reranking.protocols import Reranker
+from libs.retrieval.broker.protocols import QueryEmbedder
 from libs.retrieval.stores.memory_lexical_store import MemoryLexicalStore
 from libs.retrieval.stores.memory_vector_store import MemoryVectorStore
 from libs.retrieval.stores.protocols import LexicalStore, VectorStore
@@ -68,8 +71,7 @@ class TestCreateLexicalStore:
 class TestCreateEmbeddingProvider:
     def test_no_config_returns_mock(self) -> None:
         provider = create_embedding_provider()
-        assert hasattr(provider, "embed_chunks")
-        assert hasattr(provider, "model_info")
+        assert isinstance(provider, EmbeddingProvider)
 
     def test_tei_config_returns_tei(self) -> None:
         provider = create_embedding_provider(TeiConfig())
@@ -84,7 +86,7 @@ class TestCreateEmbeddingProvider:
 class TestCreateQueryEmbedder:
     def test_no_config_returns_mock(self) -> None:
         embedder = create_query_embedder()
-        assert hasattr(embedder, "embed_query")
+        assert isinstance(embedder, QueryEmbedder)
 
     def test_tei_config_returns_tei(self) -> None:
         embedder = create_query_embedder(TeiConfig())
@@ -99,13 +101,12 @@ class TestCreateQueryEmbedder:
 class TestCreateReranker:
     def test_no_config_returns_cross_encoder_stub(self) -> None:
         reranker = create_reranker()
-        assert hasattr(reranker, "rerank")
-        assert hasattr(reranker, "reranker_id")
+        assert isinstance(reranker, Reranker)
 
     def test_tei_config_without_reranker_url_returns_stub(self) -> None:
         reranker = create_reranker(TeiConfig(), model_name="my-model")
         assert not isinstance(reranker, TeiCrossEncoderReranker)
-        assert hasattr(reranker, "reranker_id")
+        assert isinstance(reranker, Reranker)
 
     def test_tei_config_with_reranker_url_returns_tei(self) -> None:
         config = TeiConfig(reranker_url="http://localhost:8081")

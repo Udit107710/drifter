@@ -6,6 +6,7 @@ The registry is the single place where concrete implementations are chosen.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -34,6 +35,7 @@ from libs.adapters.memory.chunk_repository import MemoryChunkRepository
 from libs.adapters.memory.crawl_state_repository import MemoryCrawlStateRepository
 from libs.adapters.memory.embedding_repository import MemoryEmbeddingRepository
 from libs.adapters.memory.source_repository import MemorySourceRepository
+from libs.adapters.protocols import Connectable, HealthCheckable
 from libs.adapters.store_writers import LexicalStoreWriter, VectorStoreWriter
 from libs.chunking.strategies.recursive import RecursiveStructureChunker
 from libs.chunking.token_counter import WhitespaceTokenCounter
@@ -57,6 +59,8 @@ from libs.reranking.service import RerankerService
 from libs.retrieval.broker.models import BrokerConfig
 from libs.retrieval.broker.service import RetrievalBroker
 from orchestrators.ingestion import IngestionOrchestrator
+
+_logger = logging.getLogger(__name__)
 
 # Fields that must not be overridden via --config for security.
 _SECRET_FIELDS = frozenset({
@@ -128,7 +132,7 @@ def create_registry(overrides: dict[str, Any] | None = None) -> ServiceRegistry:
     tracer = Tracer(collector=collector)
 
     # --- Observability: connect if real ---
-    if hasattr(collector, "connect"):
+    if isinstance(collector, Connectable):
         collector.connect()
 
     # --- Retrieval stores ---
@@ -136,19 +140,19 @@ def create_registry(overrides: dict[str, Any] | None = None) -> ServiceRegistry:
     lexical_store = create_lexical_store(opensearch_config)
 
     # Connect real stores
-    if hasattr(vector_store, "connect"):
+    if isinstance(vector_store, Connectable):
         vector_store.connect()
-    if hasattr(lexical_store, "connect"):
+    if isinstance(lexical_store, Connectable):
         lexical_store.connect()
 
     # --- Embeddings (prefer OpenRouter if embedding_model set, else TEI) ---
-    embedding_config: Any = None
+    embedding_config = None
     if openrouter_config and openrouter_config.embedding_model:
         embedding_config = openrouter_config
     elif tei_config:
         embedding_config = tei_config
-    query_embedder: Any = create_query_embedder(embedding_config)
-    if hasattr(query_embedder, "connect"):
+    query_embedder = create_query_embedder(embedding_config)
+    if isinstance(query_embedder, Connectable):
         query_embedder.connect()
 
     # --- Retrieval broker ---
@@ -163,21 +167,21 @@ def create_registry(overrides: dict[str, Any] | None = None) -> ServiceRegistry:
     )
 
     # --- Reranking (TEI > HuggingFace > FeatureBasedReranker) ---
-    reranker: Any = None
+    reranker = None
 
     # Try TEI cross-encoder first
     tei_reranker = create_reranker(tei_config)
-    if hasattr(tei_reranker, "connect"):
+    if isinstance(tei_reranker, Connectable):
         tei_reranker.connect()
-    if hasattr(tei_reranker, "health_check") and tei_reranker.health_check():
+    if isinstance(tei_reranker, HealthCheckable) and tei_reranker.health_check():
         reranker = tei_reranker
 
     # Fall back to HuggingFace Inference API
     if reranker is None and hf_config is not None:
         hf_reranker = create_reranker(hf_config)
-        if hasattr(hf_reranker, "connect"):
+        if isinstance(hf_reranker, Connectable):
             hf_reranker.connect()
-        if hasattr(hf_reranker, "health_check") and hf_reranker.health_check():
+        if isinstance(hf_reranker, HealthCheckable) and hf_reranker.health_check():
             reranker = hf_reranker
 
     # Final fallback: feature-based
@@ -187,7 +191,13 @@ def create_registry(overrides: dict[str, Any] | None = None) -> ServiceRegistry:
     reranker_service = RerankerService(reranker=reranker, top_n=top_n)
 
     # --- Context builder ---
-    counter = WhitespaceTokenCounter()
+    try:
+        from libs.chunking.token_counter import TiktokenTokenCounter
+
+        counter = TiktokenTokenCounter()
+    except ImportError:
+        _logger.warning("tiktoken not installed, falling back to WhitespaceTokenCounter")
+        counter = WhitespaceTokenCounter()
     builder = GreedyContextBuilder(token_counter=counter)
     context_builder_service = ContextBuilderService(builder=builder)
 
@@ -196,7 +206,7 @@ def create_registry(overrides: dict[str, Any] | None = None) -> ServiceRegistry:
         openrouter_config or openai_config or gemini_config or vllm_config
     )
     generator = create_generator(generator_config)
-    if hasattr(generator, "connect"):
+    if isinstance(generator, Connectable):
         generator.connect()
     request_builder = GenerationRequestBuilder()
     citation_validator = DefaultCitationValidator()
@@ -208,7 +218,7 @@ def create_registry(overrides: dict[str, Any] | None = None) -> ServiceRegistry:
 
     # --- Indexing ---
     embedding_provider = create_embedding_provider(embedding_config)
-    if hasattr(embedding_provider, "connect"):
+    if isinstance(embedding_provider, Connectable):
         embedding_provider.connect()
     chunk_repo = MemoryChunkRepository()
     embedding_repo = MemoryEmbeddingRepository()

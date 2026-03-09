@@ -419,23 +419,26 @@ class QueryOrchestrator:
 **Dependency injection happens at construction time.** A factory or configuration module creates the concrete adapters (Qdrant, OpenSearch, or in-memory mocks) and passes them to the libraries, then passes the libraries to the orchestrator. This is the single place where the entire system is wired:
 
 ```python
-# app/factory.py — the only file that knows about concrete implementations
-def build_query_orchestrator(config: AppConfig) -> QueryOrchestrator:
-    vector_store = QdrantAdapter(config.qdrant) if config.use_qdrant else MemoryVectorStore()
-    lexical_store = OpenSearchAdapter(config.opensearch) if config.use_opensearch else MemoryLexicalStore()
-    embedder = TEIAdapter(config.tei) if config.use_tei else MemoryEmbedder()
+# orchestrators/bootstrap.py — the composition root (only file that knows concrete implementations)
+from libs.adapters.factory import create_vector_store, create_generator, create_reranker
+from libs.adapters.env import load_qdrant_config, load_openrouter_config
 
-    return QueryOrchestrator(
-        normalizer=QueryNormalizer(),
-        retrieval_broker=RetrievalBroker(vector_store, lexical_store, embedder),
-        reranker=CrossEncoderReranker(config.reranker),
-        context_builder=ContextBuilder(token_budget=config.token_budget),
-        generator=VLLMGenerator(config.vllm) if config.use_vllm else MemoryGenerator(),
-        tracer=Tracer(config.otel),
-    )
+def create_registry(overrides=None) -> ServiceRegistry:
+    qdrant_cfg = load_qdrant_config()
+    vector_store = create_vector_store(qdrant_cfg)   # MemoryVectorStore if unset
+    generator = create_generator(load_openrouter_config())  # MockGenerator if unset
+    # ... constructs all services, returns ServiceRegistry
 ```
 
-**Tests compose the same way** — substitute memory adapters and the orchestrator works identically without any external services.
+Factory functions in `libs/adapters/factory.py` create adapter instances with in-memory/mock fallbacks when configs are `None`. All factories return properly typed Protocol instances (`VectorStore`, `EmbeddingProvider`, `QueryEmbedder`, `Reranker`, `Generator`, `SpanCollector`), enabling static type checking at call sites.
+
+Adapter lifecycle is managed through two runtime-checkable protocols in `libs/adapters/protocols.py`: `Connectable` (for adapters that need `connect()`) and `HealthCheckable` (for adapters that support `health_check()`). The bootstrap uses `isinstance` checks against these protocols instead of `hasattr` duck-typing.
+
+Error classification is centralized in `libs/resilience.py`, which provides `is_transient_error()` — a shared function that detects retryable errors (stdlib network errors and httpx-specific timeouts). Both the retrieval broker and indexing service delegate to this function.
+
+The bootstrap loads configs from `DRIFTER_*` env vars and applies optional `--config` CLI overrides (rejecting secret fields).
+
+**Tests compose the same way** — with no env vars set, all services use in-memory/mock implementations and the orchestrator works identically without any external services.
 
 ### Where orchestrators live
 
@@ -444,25 +447,27 @@ drifter/
 ├── libs/          # pure libraries — no cross-library imports
 ├── orchestrators/
 │   ├── __init__.py
-│   ├── ingestion.py    # IngestionOrchestrator
-│   └── query.py        # QueryOrchestrator
-├── app/
-│   ├── factory.py      # wires adapters → libraries → orchestrators
-│   └── config.py       # loads configuration
+│   ├── bootstrap.py   # ServiceRegistry + create_registry() (composition root)
+│   ├── ingestion.py   # IngestionOrchestrator
+│   └── query.py       # QueryOrchestrator
+├── apps/
+│   └── cli/           # thin presentation layer (argparse, output rendering)
 ```
 
-The `app/` layer is the only place that knows about concrete adapter classes. `orchestrators/` only knows about library protocols and contracts. `libs/` knows about nothing except `libs/contracts`.
+The `orchestrators/bootstrap.py` module is the only place that knows about concrete adapter classes. `orchestrators/` only knows about library protocols and contracts. `libs/` knows about nothing except `libs/contracts`.
 
 ### Dependency direction
 
 ```
-app/factory.py  (knows everything — wiring only)
+apps/cli/            (presentation — argparse, output)
       ↓
-orchestrators/  (knows library protocols + contracts)
+orchestrators/bootstrap.py  (knows everything — wiring only)
       ↓
-libs/*          (knows only libs/contracts)
+orchestrators/       (knows library protocols + contracts)
       ↓
-libs/contracts  (knows nothing — pure domain types)
+libs/*               (knows only libs/contracts)
+      ↓
+libs/contracts       (knows nothing — pure domain types)
 ```
 
 No upward imports. No circular dependencies. Each layer depends only on the layer below it.

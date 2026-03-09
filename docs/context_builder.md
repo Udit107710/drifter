@@ -22,7 +22,7 @@ deduplicate(by content_hash)
     v  strategy selection
     |
     +-- GreedyContextBuilder     (rank-order packing)
-    +-- DiversityAwareBuilder    (MMR-style, planned)
+    +-- DiversityAwareBuilder    (MMR-style)
     |
     v  token budgeting (strict enforcement)
     |
@@ -62,7 +62,7 @@ Algorithm:
 
 The greedy builder is deterministic and fast — suitable for baselines and production use when source diversity is not a concern.
 
-### DiversityAwareBuilder (planned)
+### DiversityAwareBuilder (`diversity_builder.py`)
 
 An MMR-style (Maximal Marginal Relevance) builder that balances relevance and novelty. For each candidate position, it scores:
 
@@ -70,19 +70,19 @@ An MMR-style (Maximal Marginal Relevance) builder that balances relevance and no
 score = (1 - diversity_weight) * relevance + diversity_weight * novelty
 ```
 
-Where `novelty` measures how different a candidate is from already-selected evidence (e.g., by source ID, content similarity). Candidates selected for diversity reasons receive `SelectionReason.DIVERSITY`.
+Where `novelty` is source-based: candidates from sources not yet represented in the selected set receive a novelty bonus. Candidates selected for diversity reasons receive `SelectionReason.DIVERSITY`.
 
-This builder will share the same deduplication and token budgeting infrastructure as the greedy builder.
+This builder shares the same deduplication and token budgeting infrastructure as the greedy builder. It also respects `max_chunks_per_source` caps and records exclusion reasons for every skipped candidate.
 
-### ContextBuilderService (planned)
+### ContextBuilderService (`service.py`)
 
 Orchestrator that wraps any `ContextBuilder` implementation:
-1. Validates input (empty check, budget sanity)
-2. Calls `builder.build()` (catches exceptions)
-3. Enriches the `BuilderResult` with trace metadata
+1. Validates input (empty check, budget sanity — `token_budget >= 1`)
+2. Calls `builder.build()` (catches exceptions → `FAILED` outcome)
+3. Enriches the `BuilderResult` with service-level timing
 4. Returns the result with timing and error context
 
-Follows the same pattern as `RerankerService` in the reranking subsystem.
+Follows the same pattern as `RerankerService` in the reranking subsystem. Currently wired to `GreedyContextBuilder` in the bootstrap; swap to `DiversityAwareBuilder` by changing the builder passed to the service.
 
 ### Deduplication (`dedup.py`)
 
@@ -139,8 +139,10 @@ The `ContextPack.diversity_score` field measures source coverage: `unique_source
 Token budget enforcement is strict — the builder never exceeds the budget. Key design decisions:
 
 - Tokens are counted per-chunk using a pluggable `TokenCounter` (protocol from `libs.chunking.protocols`)
-- The built-in `WhitespaceTokenCounter` splits on whitespace (suitable for testing)
-- Production deployments should use a model-specific tokenizer (e.g., tiktoken for GPT models)
+- Two implementations are provided in `libs/chunking/token_counter.py`:
+  - **`WhitespaceTokenCounter`** — splits on whitespace (suitable for testing, zero dependencies)
+  - **`TiktokenTokenCounter`** — uses OpenAI's tiktoken BPE tokenizer for accurate subword token counts (requires `pip install tiktoken` or `uv sync --extra tokenizers`)
+- The bootstrap automatically uses `TiktokenTokenCounter` when tiktoken is installed, falling back to `WhitespaceTokenCounter` otherwise
 - Chunks that exceed remaining budget are skipped entirely, not truncated
 - Zero-token chunks are excluded with reason `zero_tokens`
 - The `ContextPack` contract enforces `total_tokens <= token_budget` at construction time
@@ -148,12 +150,17 @@ Token budget enforcement is strict — the builder never exceeds the budget. Key
 ## Usage
 
 ```python
-from libs.chunking.token_counter import WhitespaceTokenCounter
 from libs.context_builder.greedy_builder import GreedyContextBuilder
 from libs.context_builder.models import BuilderConfig
 
-# Create builder with a token counter
-counter = WhitespaceTokenCounter()
+# For production: accurate BPE token counting (requires tiktoken)
+from libs.chunking.token_counter import TiktokenTokenCounter
+counter = TiktokenTokenCounter(model="gpt-4o")
+
+# For testing: zero-dependency whitespace counting
+# from libs.chunking.token_counter import WhitespaceTokenCounter
+# counter = WhitespaceTokenCounter()
+
 config = BuilderConfig(token_budget=2000, deduplicate=True, max_chunks=10)
 builder = GreedyContextBuilder(token_counter=counter, config=config)
 
@@ -187,7 +194,7 @@ for excl in result.exclusions:
 
 This subsystem was built following these skills:
 - `rag/context_packing_analysis` — token-aware packing, inclusion/exclusion tracking
-- `rag/context_diversity` — diversity scoring, MMR-style selection (planned)
+- `rag/context_diversity` — diversity scoring, MMR-style selection
 - `rag/rag_trace_analysis` — debug dict with full trace metadata
 - `reliability/failure_mode_analysis` — explicit outcomes, contextual error reporting
 - `scalability/token_budget_management` — strict enforcement, pluggable counters

@@ -38,19 +38,22 @@ These typed models carry metadata, lineage, version info, and token counts:
 
 `SourceDocumentRef → CanonicalDocument → Block → Chunk → ChunkEmbedding → RetrievalCandidate → RankedCandidate → ContextPack → Citation → GeneratedAnswer`
 
-## Planned Integrations (behind abstractions)
+## Integrations (behind abstractions)
 
-| Concern | Tool |
-|---------|------|
-| Parsing | Unstructured, Apache Tika |
-| Dense retrieval | Qdrant |
-| Lexical retrieval | OpenSearch |
-| Embeddings | TEI |
-| Generation | vLLM |
-| Relational storage | Postgres |
-| Blob storage | MinIO (S3-compatible) |
-| Evaluation | Ragas |
-| Observability | OpenTelemetry |
+| Concern | Tool | Status |
+|---------|------|--------|
+| Dense retrieval | Qdrant | Implemented |
+| Lexical retrieval | OpenSearch | Implemented |
+| Embeddings | TEI, OpenRouter | Implemented |
+| Generation | OpenAI, OpenRouter, Gemini | Implemented |
+| Reranking | TEI cross-encoder, HuggingFace | Implemented |
+| Token counting | tiktoken (optional), whitespace fallback | Implemented |
+| Observability | OpenTelemetry, Langfuse | Implemented |
+| Parsing | Unstructured, Apache Tika | Stub |
+| Generation (local) | vLLM | Stub |
+| Evaluation | Ragas | Stub |
+| Relational storage | Postgres | Planned |
+| Blob storage | MinIO (S3-compatible) | Planned |
 
 Core logic must not be tightly coupled to any of these.
 

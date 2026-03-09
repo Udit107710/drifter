@@ -25,10 +25,14 @@ from libs.adapters.config import (
 )
 
 if TYPE_CHECKING:
-    from libs.generation.protocols import Generator
-    from libs.observability.collector import SpanCollector
     from libs.parsing.parsers.pdf import PdfParserBase
-    from libs.retrieval.stores.protocols import LexicalStore, VectorStore
+
+from libs.embeddings.protocols import EmbeddingProvider
+from libs.generation.protocols import Generator
+from libs.observability.collector import SpanCollector
+from libs.reranking.protocols import Reranker
+from libs.retrieval.broker.protocols import QueryEmbedder
+from libs.retrieval.stores.protocols import LexicalStore, VectorStore
 
 
 def create_vector_store(config: QdrantConfig | OpenSearchConfig | None = None) -> VectorStore:
@@ -74,7 +78,7 @@ def create_lexical_store(config: OpenSearchConfig | None = None) -> LexicalStore
 
 def create_embedding_provider(
     config: TeiConfig | OpenRouterConfig | None = None,
-) -> object:
+) -> EmbeddingProvider:
     """Create an embedding provider instance.
 
     Returns :class:`DeterministicEmbeddingProvider` when *config* is
@@ -99,7 +103,7 @@ def create_embedding_provider(
 
 def create_query_embedder(
     config: TeiConfig | OpenRouterConfig | None = None,
-) -> object:
+) -> QueryEmbedder:
     """Create a query embedder instance.
 
     Returns a mock embedder when *config* is ``None``,
@@ -133,7 +137,7 @@ def create_query_embedder(
 def create_reranker(
     config: TeiConfig | HuggingFaceConfig | None = None,
     model_name: str = "cross-encoder",
-) -> object:
+) -> Reranker:
     """Create a reranker instance.
 
     Returns :class:`TeiCrossEncoderReranker` for a :class:`TeiConfig` with

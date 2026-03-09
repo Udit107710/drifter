@@ -20,9 +20,11 @@ RetrievalCandidate
     ▼ RerankerService.run()
     │
     ├── Reranker.rerank()  ← protocol dispatch
-    │   ├── PassthroughReranker   (score-order baseline)
-    │   ├── FeatureBasedReranker  (weighted multi-signal)
-    │   └── CrossEncoderReranker  (placeholder)
+    │   ├── PassthroughReranker      (score-order baseline)
+    │   ├── FeatureBasedReranker     (weighted multi-signal)
+    │   ├── TeiCrossEncoderReranker  (TEI cross-encoder)
+    │   ├── HuggingFaceReranker      (HF Inference API)
+    │   └── CrossEncoderReranker     (legacy stub)
     │
     ▼ truncate to top_n
 RerankerResult (with timing, outcome, debug)
@@ -64,9 +66,17 @@ Cross-encoder reranker backed by a TEI server. Sends `(query, document)` pairs t
 
 Requires a separate TEI instance running a cross-encoder model (e.g. `BAAI/bge-reranker-base`). Configure via `DRIFTER_TEI_RERANKER_URL`. When not configured, the bootstrap falls back to `FeatureBasedReranker`.
 
+### HuggingFaceReranker (`libs/adapters/huggingface/reranker.py`)
+
+Cross-encoder reranker backed by the HuggingFace Inference API. Uses `huggingface_hub.InferenceClient.text_classification()` to score `(query, document)` pairs. ID: `huggingface:{model_name}`.
+
+Configure via `DRIFTER_HF_TOKEN` and `DRIFTER_HF_RERANKER_MODEL`. The bootstrap prefers TEI when available, then falls back to HuggingFace if configured. Both are checked via the `HealthCheckable` protocol (`isinstance(reranker, HealthCheckable)`) before being selected — the bootstrap never uses `hasattr` for lifecycle dispatch.
+
+The `create_reranker()` factory returns a typed `Reranker` protocol instance, enabling static type checking at all call sites.
+
 ### CrossEncoderReranker (`cross_encoder_stub.py`)
 
-Legacy stub that raises `NotImplementedError`. Retained for backwards compatibility. Use `TeiCrossEncoderReranker` for real cross-encoder reranking.
+Legacy stub that raises `NotImplementedError`. Retained for backwards compatibility. Use `TeiCrossEncoderReranker` or `HuggingFaceReranker` for real cross-encoder reranking.
 
 ### RerankerService (`service.py`)
 

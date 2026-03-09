@@ -91,17 +91,17 @@ Dict-backed store keyed by `ChunkId`. Supports `add()` and `add_batch()`. Search
 
 Both adapters require no external services and produce repeatable results. Use them for unit tests, integration tests, and example scripts.
 
-## Adapter Stubs
+## Production Adapters
 
-Three placeholder classes demonstrate the protocol interface shape for production backends. Each raises `NotImplementedError` on all methods:
+Three production-ready adapter classes are available for real backends. The files under `libs/retrieval/stores/` re-export from `libs/adapters/` for backward compatibility:
 
-| Class | File | Backend |
-|-------|------|---------|
-| `QdrantVectorStore` | `libs/retrieval/stores/qdrant_vector_store.py` | Qdrant dense retrieval |
-| `OpenSearchLexicalStore` | `libs/retrieval/stores/opensearch_lexical_store.py` | OpenSearch full-text search |
-| `OpenSearchVectorStore` | `libs/retrieval/stores/opensearch_vector_store.py` | OpenSearch k-NN plugin |
+| Class | Canonical Location | Backend |
+|-------|-------------------|---------|
+| `QdrantVectorStore` | `libs/adapters/qdrant/vector_store.py` | Qdrant dense retrieval (gRPC or REST) |
+| `OpenSearchLexicalStore` | `libs/adapters/opensearch/lexical_store.py` | OpenSearch BM25 full-text search |
+| `OpenSearchVectorStore` | `libs/adapters/opensearch/vector_store.py` | OpenSearch k-NN plugin (HNSW) |
 
-These stubs exist so the codebase has concrete adapter files ready for implementation. Each satisfies the relevant protocol interface (`VectorStore` or `LexicalStore`).
+Each is fully implemented with real HTTP/gRPC calls, lazy index/collection creation, metadata filtering, and lifecycle methods (`connect()`, `close()`, `health_check()`). Configure via `DRIFTER_QDRANT_*` and `DRIFTER_OPENSEARCH_*` environment variables.
 
 ## Running the Example
 
@@ -124,8 +124,8 @@ The example creates six test chunks (three about machine learning, three about c
 | `libs/retrieval/stores/protocols.py` | `VectorStore` and `LexicalStore` protocols |
 | `libs/retrieval/stores/memory_vector_store.py` | `MemoryVectorStore` in-memory adapter |
 | `libs/retrieval/stores/memory_lexical_store.py` | `MemoryLexicalStore` in-memory adapter |
-| `libs/retrieval/stores/qdrant_vector_store.py` | `QdrantVectorStore` placeholder |
-| `libs/retrieval/stores/opensearch_lexical_store.py` | `OpenSearchLexicalStore` placeholder |
-| `libs/retrieval/stores/opensearch_vector_store.py` | `OpenSearchVectorStore` placeholder |
+| `libs/retrieval/stores/qdrant_vector_store.py` | `QdrantVectorStore` re-export (impl in `libs/adapters/qdrant/`) |
+| `libs/retrieval/stores/opensearch_lexical_store.py` | `OpenSearchLexicalStore` re-export (impl in `libs/adapters/opensearch/`) |
+| `libs/retrieval/stores/opensearch_vector_store.py` | `OpenSearchVectorStore` re-export (impl in `libs/adapters/opensearch/`) |
 | `libs/contracts/retrieval.py` | `RetrievalQuery`, `RetrievalCandidate`, `RankedCandidate` |
 | `examples/retrieval_stores_sample.py` | Runnable demo |

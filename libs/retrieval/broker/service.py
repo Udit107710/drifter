@@ -8,6 +8,7 @@ from typing import Any
 
 from libs.contracts.common import RetrievalMethod
 from libs.contracts.retrieval import RetrievalCandidate, RetrievalQuery
+from libs.resilience import is_transient_error
 from libs.retrieval.broker.dedup import apply_source_caps
 from libs.retrieval.broker.fusion import reciprocal_rank_fusion
 from libs.retrieval.broker.models import (
@@ -28,7 +29,7 @@ from libs.retrieval.stores.protocols import LexicalStore, VectorStore
 
 def _classify_error(exc: Exception) -> ErrorClassification:
     """Classify an exception as transient (retryable) or permanent."""
-    if isinstance(exc, (TimeoutError, ConnectionError, OSError)):
+    if is_transient_error(exc):
         return ErrorClassification.TRANSIENT
     return ErrorClassification.PERMANENT
 

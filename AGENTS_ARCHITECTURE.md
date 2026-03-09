@@ -59,3 +59,5 @@ Owns online request handling:
 - generation uses provided evidence; it does not choose retrieval policy
 - ingestion/indexing logic must not live in API handlers
 - storage-specific code must remain behind adapters
+- error classification logic lives in `libs/resilience.py` — subsystems must not duplicate transient/permanent detection
+- adapter lifecycle checks use `Connectable`/`HealthCheckable` protocols (`libs/adapters/protocols.py`), not `hasattr`

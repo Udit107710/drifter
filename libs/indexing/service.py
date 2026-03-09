@@ -14,11 +14,12 @@ from libs.indexing.protocols import (
     LexicalIndexWriter,
     VectorIndexWriter,
 )
+from libs.resilience import is_transient_error
 
 
 def _classify_error(exc: Exception) -> ErrorClassification:
     """Classify an exception as transient or permanent."""
-    if isinstance(exc, (TimeoutError, ConnectionError, OSError)):
+    if is_transient_error(exc):
         return ErrorClassification.TRANSIENT
     return ErrorClassification.PERMANENT
 
