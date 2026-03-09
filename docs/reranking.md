@@ -52,12 +52,21 @@ Computes a weighted sum of six signals, each normalized to [0, 1]:
 | freshness | `exp(-age_days / 365)` from `chunk.metadata["updated_at"]` | 0.1 |
 | title_match | 1.0 if query is substring of `chunk.metadata["title"]` | 0.5 |
 | source_type | `chunk.metadata["source_type_score"]`, clamped | 0.1 |
+| source_reference | 1.0 if query mentions "chapter N" / "section N" and chunk matches | 2.0 |
+
+The `source_reference` feature detects chapter/section/part/appendix references in the query (e.g. "What happens in chapter 20?") and boosts chunks whose `source_id` or content matches that reference. This is the highest-weighted feature — when a user explicitly references a source, that signal should dominate.
 
 Tie-breaking: by original retrieval score descending. ID: `feature-based-v1`.
 
+### TeiCrossEncoderReranker (`libs/adapters/tei/cross_encoder.py`)
+
+Cross-encoder reranker backed by a TEI server. Sends `(query, document)` pairs to `POST /rerank` and uses the returned relevance scores to rank candidates. ID: `tei-cross-encoder:{model_name}`.
+
+Requires a separate TEI instance running a cross-encoder model (e.g. `BAAI/bge-reranker-base`). Configure via `DRIFTER_TEI_RERANKER_URL`. When not configured, the bootstrap falls back to `FeatureBasedReranker`.
+
 ### CrossEncoderReranker (`cross_encoder_stub.py`)
 
-Placeholder that raises `NotImplementedError`. Will integrate with a cross-encoder inference backend (e.g. TEI) when available. ID: `cross-encoder:{model_name}`.
+Legacy stub that raises `NotImplementedError`. Retained for backwards compatibility. Use `TeiCrossEncoderReranker` for real cross-encoder reranking.
 
 ### RerankerService (`service.py`)
 
@@ -117,7 +126,7 @@ Reranking is typically the most expensive retrieval-path stage. The `RerankerRes
 
 - PassthroughReranker: O(n log n) sort, negligible latency
 - FeatureBasedReranker: O(n * q) where q = query term count, still fast
-- CrossEncoderReranker (future): O(n) model inference calls — use `top_n` to cap input size
+- TeiCrossEncoderReranker: O(n) HTTP call to TEI server — use `top_n` to cap input size
 
 Use `top_n` on `RerankerService` to control the tradeoff between precision and latency.
 

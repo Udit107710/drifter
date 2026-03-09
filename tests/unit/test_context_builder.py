@@ -178,9 +178,9 @@ class TestGreedyBuilder:
     def test_packs_in_rank_order(self) -> None:
         """3 candidates, budget fits all -> all included in rank order."""
         candidates = [
-            _make_candidate("c1", 0.9, 1, "alpha bravo charlie"),
-            _make_candidate("c2", 0.8, 2, "delta echo foxtrot"),
-            _make_candidate("c3", 0.7, 3, "golf hotel india"),
+            _make_candidate("c1", 0.9, 1, "alpha bravo charlie", source_id="src-1"),
+            _make_candidate("c2", 0.8, 2, "delta echo foxtrot", source_id="src-2"),
+            _make_candidate("c3", 0.7, 3, "golf hotel india", source_id="src-3"),
         ]
         result = self._builder().build(candidates, _make_query(), token_budget=100)
 
@@ -192,9 +192,9 @@ class TestGreedyBuilder:
     def test_respects_token_budget(self) -> None:
         """Budget only fits first 2 of 3 -> 2 included, 1 excluded with budget_exceeded."""
         candidates = [
-            _make_candidate("c1", 0.9, 1, "alpha bravo charlie"),  # 3 tokens
-            _make_candidate("c2", 0.8, 2, "delta echo foxtrot"),  # 3 tokens
-            _make_candidate("c3", 0.7, 3, "golf hotel india"),  # 3 tokens
+            _make_candidate("c1", 0.9, 1, "alpha bravo charlie", source_id="src-1"),  # 3 tokens
+            _make_candidate("c2", 0.8, 2, "delta echo foxtrot", source_id="src-2"),  # 3 tokens
+            _make_candidate("c3", 0.7, 3, "golf hotel india", source_id="src-3"),  # 3 tokens
         ]
         result = self._builder().build(candidates, _make_query(), token_budget=6)
 
@@ -258,9 +258,9 @@ class TestGreedyBuilder:
         """Config max_chunks=2 with 3 fitting candidates -> only 2 selected."""
         config = BuilderConfig(max_chunks=2)
         candidates = [
-            _make_candidate("c1", 0.9, 1, "alpha bravo"),
-            _make_candidate("c2", 0.8, 2, "charlie delta"),
-            _make_candidate("c3", 0.7, 3, "echo foxtrot"),
+            _make_candidate("c1", 0.9, 1, "alpha bravo", source_id="src-1"),
+            _make_candidate("c2", 0.8, 2, "charlie delta", source_id="src-2"),
+            _make_candidate("c3", 0.7, 3, "echo foxtrot", source_id="src-3"),
         ]
         result = self._builder(config).build(candidates, _make_query(), token_budget=100)
 

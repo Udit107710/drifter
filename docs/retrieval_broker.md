@@ -98,7 +98,9 @@ All fields on `BrokerConfig` (`libs/retrieval/broker/models.py`):
 | `rrf_k` | `int` | `60` | RRF smoothing constant |
 | `max_candidates_per_source` | `int` | `0` | Max candidates per `source_id` (0 = no cap) |
 | `dense_weight` | `float` | `1.0` | RRF weight for dense results |
-| `lexical_weight` | `float` | `1.0` | RRF weight for lexical results |
+| `lexical_weight` | `float` | `1.5` | RRF weight for lexical results |
+
+**Why lexical_weight defaults to 1.5**: Empirical tuning showed that lexical retrieval produces higher-precision matches for queries with specific terms (names, chapter references, technical keywords). A 1.5x weight gives BM25 results a modest boost in RRF fusion without drowning out semantic matches. Override with `--config lexical_weight=N`.
 
 ## RetrievalMode
 

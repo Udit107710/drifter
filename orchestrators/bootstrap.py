@@ -12,6 +12,7 @@ from typing import Any
 from libs.adapters.env import (
     load_gemini_config,
     load_langfuse_config,
+    load_openai_config,
     load_opensearch_config,
     load_otel_config,
     load_qdrant_config,
@@ -23,6 +24,7 @@ from libs.adapters.factory import (
     create_generator,
     create_lexical_store,
     create_query_embedder,
+    create_reranker,
     create_span_collector,
     create_vector_store,
 )
@@ -50,6 +52,7 @@ from libs.parsing.parsers.markdown import MarkdownParser
 from libs.parsing.parsers.plain_text import PlainTextParser
 from libs.reranking.feature_reranker import FeatureBasedReranker
 from libs.reranking.service import RerankerService
+from libs.retrieval.broker.models import BrokerConfig
 from libs.retrieval.broker.service import RetrievalBroker
 from orchestrators.ingestion import IngestionOrchestrator
 
@@ -107,12 +110,13 @@ def create_registry(overrides: dict[str, Any] | None = None) -> ServiceRegistry:
     opensearch_config = load_opensearch_config()
     tei_config = load_tei_config()
     vllm_config = load_vllm_config()
+    openai_config = load_openai_config()
     gemini_config = load_gemini_config()
     otel_config = load_otel_config()
     langfuse_config = load_langfuse_config()
 
     # --- Token budget (overridable) ---
-    token_budget = int(overrides.get("token_budget", 3000))
+    token_budget = int(overrides.get("token_budget", 5000))
 
     # --- Observability (prefer Langfuse over OTel) ---
     collector_config = langfuse_config or otel_config
@@ -137,14 +141,25 @@ def create_registry(overrides: dict[str, Any] | None = None) -> ServiceRegistry:
     query_embedder: Any = create_query_embedder(tei_config)
 
     # --- Retrieval broker ---
+    broker_config = BrokerConfig(
+        lexical_weight=float(overrides.get("lexical_weight", 1.5)),
+    )
     retrieval_broker = RetrievalBroker(
         vector_store=vector_store,
         lexical_store=lexical_store,
         query_embedder=query_embedder,
+        config=broker_config,
     )
 
-    # --- Reranking (feature-based by default, no external model needed) ---
-    reranker = FeatureBasedReranker()
+    # --- Reranking (TEI cross-encoder if available, else feature-based) ---
+    tei_reranker = create_reranker(tei_config)
+    if hasattr(tei_reranker, "connect"):
+        tei_reranker.connect()
+    # Use TEI cross-encoder if it connected successfully, else fall back
+    if hasattr(tei_reranker, "health_check") and tei_reranker.health_check():
+        reranker = tei_reranker
+    else:
+        reranker = FeatureBasedReranker()
     top_n = int(overrides.get("reranker_top_n", 0))
     reranker_service = RerankerService(reranker=reranker, top_n=top_n)
 
@@ -153,8 +168,8 @@ def create_registry(overrides: dict[str, Any] | None = None) -> ServiceRegistry:
     builder = GreedyContextBuilder(token_counter=counter)
     context_builder_service = ContextBuilderService(builder=builder)
 
-    # --- Generation (prefer Gemini over vLLM) ---
-    generator_config = gemini_config or vllm_config
+    # --- Generation (prefer OpenAI > Gemini > vLLM) ---
+    generator_config = openai_config or gemini_config or vllm_config
     generator = create_generator(generator_config)
     if hasattr(generator, "connect"):
         generator.connect()

@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 from libs.contracts.chunks import Chunk, ChunkLineage
 from libs.contracts.common import RetrievalMethod
+from libs.contracts.retrieval import RetrievalQuery
 from libs.reranking import (
     FeatureBasedReranker,
     FeatureWeights,
@@ -13,7 +14,6 @@ from libs.reranking import (
     RerankerService,
     fused_list_to_retrieval_candidates,
 )
-from libs.contracts.retrieval import RetrievalQuery
 from libs.retrieval.broker.models import FusedCandidate
 
 

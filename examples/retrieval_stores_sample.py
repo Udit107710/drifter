@@ -64,12 +64,30 @@ def main() -> None:
     print("-" * 60)
 
     chunks = [
-        _make_chunk(0, "Machine learning models learn patterns from training data", category="tech"),
-        _make_chunk(1, "Neural networks use gradient descent for optimization", category="tech"),
-        _make_chunk(2, "Deep learning requires large datasets and GPU compute", category="tech"),
-        _make_chunk(3, "A simple pasta recipe starts with boiling salted water", category="food"),
-        _make_chunk(4, "Cooking recipes often include precise temperature and timing", category="food"),
-        _make_chunk(5, "Sourdough bread requires a starter culture and long fermentation", category="food"),
+        _make_chunk(
+            0, "Machine learning models learn patterns from training data",
+            category="tech",
+        ),
+        _make_chunk(
+            1, "Neural networks use gradient descent for optimization",
+            category="tech",
+        ),
+        _make_chunk(
+            2, "Deep learning requires large datasets and GPU compute",
+            category="tech",
+        ),
+        _make_chunk(
+            3, "A simple pasta recipe starts with boiling salted water",
+            category="food",
+        ),
+        _make_chunk(
+            4, "Cooking recipes often include precise temperature and timing",
+            category="food",
+        ),
+        _make_chunk(
+            5, "Sourdough bread requires a starter culture and long fermentation",
+            category="food",
+        ),
     ]
 
     for chunk in chunks:

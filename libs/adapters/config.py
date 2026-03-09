@@ -73,8 +73,10 @@ class TeiConfig:
     """Configuration for Text Embeddings Inference."""
 
     base_url: str = "http://localhost:8080"
+    reranker_url: str = ""
     model_id: str = ""
     model_version: str = ""
+    reranker_model_id: str = ""
     timeout_s: float = 30.0
     max_batch_size: int = 32
 
@@ -157,6 +159,35 @@ class RagasConfig:
     def __post_init__(self) -> None:
         if not self.metrics:
             raise ValueError("metrics must not be empty")
+
+
+@dataclass(frozen=True)
+class OpenAIConfig:
+    """Configuration for OpenAI-compatible LLM."""
+
+    api_key: str = ""
+    model_id: str = "gpt-4o"
+    base_url: str = "https://api.openai.com"
+    timeout_s: float = 60.0
+    max_tokens: int = 1024
+    temperature: float = 0.1
+
+    def __post_init__(self) -> None:
+        if not self.api_key:
+            raise ValueError("api_key must not be empty")
+        if not self.model_id:
+            raise ValueError("model_id must not be empty")
+        if not self.base_url:
+            raise ValueError("base_url must not be empty")
+        if self.timeout_s <= 0:
+            raise ValueError("timeout_s must be > 0")
+        if self.max_tokens <= 0:
+            raise ValueError("max_tokens must be > 0")
+        if not (0 <= self.temperature <= 2):
+            raise ValueError("temperature must be between 0 and 2")
+
+    def __repr__(self) -> str:
+        return _masked_repr(self, ("api_key",))
 
 
 @dataclass(frozen=True)

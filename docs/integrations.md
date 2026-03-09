@@ -12,6 +12,7 @@ Drifter uses adapter stubs under `libs/adapters/` to isolate external provider d
 | TEI (embeddings) | `libs.adapters.tei.TeiEmbeddingProvider` | `EmbeddingProvider` |
 | TEI (query) | `libs.adapters.tei.TeiQueryEmbedder` | `QueryEmbedder` |
 | TEI (reranking) | `libs.adapters.tei.TeiCrossEncoderReranker` | `Reranker` |
+| OpenAI | `libs.adapters.openai.OpenAIGenerator` | `Generator` |
 | Google Gemini | `libs.adapters.gemini.GeminiGenerator` | `Generator` |
 | vLLM | `libs.adapters.vllm.VllmGenerator` | `Generator` |
 | Unstructured | `libs.adapters.unstructured.UnstructuredPdfParser` | `PdfParserBase` |
@@ -32,7 +33,8 @@ Set `DRIFTER_*` env vars to configure providers. The `libs.adapters.env` module 
 |----------|----------------|-----------------|
 | Qdrant | `DRIFTER_QDRANT_HOST` | `_PORT`, `_GRPC_PORT`, `_API_KEY`, `_COLLECTION`, `_TIMEOUT_S`, `_USE_TLS` |
 | OpenSearch | `DRIFTER_OPENSEARCH_HOSTS` | `_USERNAME`, `_PASSWORD`, `_INDEX_PREFIX`, `_USE_SSL`, `_TIMEOUT_S` |
-| TEI | `DRIFTER_TEI_URL` | `_MODEL_ID`, `_MODEL_VERSION`, `_TIMEOUT_S`, `_MAX_BATCH_SIZE` |
+| OpenAI | `DRIFTER_OPENAI_API_KEY` | `_MODEL` (default: gpt-4o), `_BASE_URL`, `_TIMEOUT_S`, `_MAX_TOKENS`, `_TEMPERATURE` |
+| TEI | `DRIFTER_TEI_URL` | `_RERANKER_URL`, `_MODEL_ID`, `_MODEL_VERSION`, `_RERANKER_MODEL_ID`, `_TIMEOUT_S`, `_MAX_BATCH_SIZE` |
 | Gemini | `DRIFTER_GEMINI_API_KEY` | `_MODEL` (default: gemini-2.5-flash), `_TIMEOUT_S`, `_MAX_TOKENS`, `_TEMPERATURE` |
 | vLLM | `DRIFTER_VLLM_URL` | `_MODEL_ID`, `_API_KEY`, `_TIMEOUT_S`, `_MAX_TOKENS`, `_TEMPERATURE` |
 | Unstructured | `DRIFTER_UNSTRUCTURED_URL` | `_STRATEGY`, `_TIMEOUT_S` |
@@ -57,11 +59,37 @@ Each factory returns an in-memory/mock fallback when `config=None`, keeping the 
 
 ## Lifecycle
 
-Every adapter stub exposes three lifecycle methods:
+Every adapter exposes three lifecycle methods:
 
-- `connect()` — establish connection (no-op in stubs)
-- `close()` — release resources (no-op in stubs)
-- `health_check() -> bool` — returns `False` in stubs
+- `connect()` — establish connection (creates HTTP client, pings server)
+- `close()` — release resources (closes HTTP client)
+- `health_check() -> bool` — returns `False` when not connected or server unreachable
+
+## Implemented Adapters
+
+The following adapters are fully implemented with real service backends:
+
+| Adapter | Client | Notes |
+|---------|--------|-------|
+| `QdrantVectorStore` | `qdrant-client` | gRPC or REST, TLS optional |
+| `OpenSearchVectorStore` | `opensearch-py` | k-NN plugin required |
+| `OpenSearchLexicalStore` | `opensearch-py` | BM25 full-text search |
+| `OtelSpanExporter` | `opentelemetry-sdk` | OTLP gRPC/HTTP export |
+| `LangfuseSpanExporter` | `langfuse` | Redis-backed span buffering |
+| `OpenAIGenerator` | `httpx` | OpenAI Chat Completions API |
+| `GeminiGenerator` | `google-genai` | Gemini 2.5 Flash/Pro |
+| `TeiEmbeddingProvider` | `httpx` | TEI `/embed` + `/info` endpoints, batched |
+| `TeiQueryEmbedder` | `httpx` | TEI `/embed` for single queries |
+| `TeiCrossEncoderReranker` | `httpx` | TEI `/rerank` endpoint |
+
+## Stub Adapters (Not Yet Implemented)
+
+| Adapter | Status |
+|---------|--------|
+| `VllmGenerator` | Stub — raises `NotImplementedError` |
+| `UnstructuredPdfParser` | Stub — raises `NotImplementedError` |
+| `TikaPdfParser` | Stub — raises `NotImplementedError` |
+| `RagasAnswerEvaluator` | Stub — raises `NotImplementedError` |
 
 ## Adding a Real Implementation
 

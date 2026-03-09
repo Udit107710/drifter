@@ -28,7 +28,7 @@ class VectorStoreWriter:
         ]
         if not pairs:
             return 0
-        embs, chs = zip(*pairs)
+        embs, chs = zip(*pairs, strict=True)
         self._store.add_batch(list(embs), list(chs))
         return len(pairs)
 

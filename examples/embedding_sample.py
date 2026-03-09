@@ -118,7 +118,8 @@ def main() -> None:
     print(f"  Chunks embedded:       {result.chunks_embedded}")
     print(f"  Chunks indexed vector: {result.chunks_indexed_vector}")
     print(f"  Chunks indexed lexical:{result.chunks_indexed_lexical}")
-    print(f"  Model:                 {result.model_info.model_id} v{result.model_info.model_version}")
+    model = f"{result.model_info.model_id} v{result.model_info.model_version}"
+    print(f"  Model:                 {model}")
     print(f"  Errors:                {result.errors or 'none'}")
     print()
 

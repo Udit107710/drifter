@@ -209,14 +209,20 @@ class QueryOrchestrator:
             )
             broker_result = self._run_retrieval(ctx, rq)
             if broker_result.outcome in (BrokerOutcome.FAILED, BrokerOutcome.NO_RESULTS):
-                record_stage_result(root, outcome=broker_result.outcome.value, input_count=1, output_count=0)
+                record_stage_result(
+                    root, outcome=broker_result.outcome.value,
+                    input_count=1, output_count=0,
+                )
                 return QueryResult(
                     trace_id=ctx.trace_id, query=query, broker_result=broker_result,
                     total_latency_ms=_elapsed_ms(start), outcome=broker_result.outcome.value,
                 )
             candidates = fused_list_to_retrieval_candidates(broker_result.candidates)
             reranker_result = self._run_reranking(ctx, candidates, rq)
-            record_stage_result(root, outcome="success", input_count=1, output_count=reranker_result.candidate_count)
+            record_stage_result(
+                root, outcome="success",
+                input_count=1, output_count=reranker_result.candidate_count,
+            )
             return QueryResult(
                 trace_id=ctx.trace_id, query=query, broker_result=broker_result,
                 reranker_result=reranker_result, total_latency_ms=_elapsed_ms(start),
@@ -242,7 +248,10 @@ class QueryOrchestrator:
             )
             broker_result = self._run_retrieval(ctx, rq)
             if broker_result.outcome in (BrokerOutcome.FAILED, BrokerOutcome.NO_RESULTS):
-                record_stage_result(root, outcome=broker_result.outcome.value, input_count=1, output_count=0)
+                record_stage_result(
+                    root, outcome=broker_result.outcome.value,
+                    input_count=1, output_count=0,
+                )
                 return QueryResult(
                     trace_id=ctx.trace_id, query=query, broker_result=broker_result,
                     total_latency_ms=_elapsed_ms(start), outcome=broker_result.outcome.value,

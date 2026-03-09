@@ -7,6 +7,7 @@ import os
 from libs.adapters.config import (
     GeminiConfig,
     LangfuseConfig,
+    OpenAIConfig,
     OpenSearchConfig,
     OtelConfig,
     QdrantConfig,
@@ -82,8 +83,10 @@ def load_tei_config() -> TeiConfig | None:
         return None
     return TeiConfig(
         base_url=base_url,
+        reranker_url=os.environ.get("DRIFTER_TEI_RERANKER_URL", ""),
         model_id=os.environ.get("DRIFTER_TEI_MODEL_ID", ""),
         model_version=os.environ.get("DRIFTER_TEI_MODEL_VERSION", ""),
+        reranker_model_id=os.environ.get("DRIFTER_TEI_RERANKER_MODEL_ID", ""),
         timeout_s=float(os.environ.get("DRIFTER_TEI_TIMEOUT_S", "30.0")),
         max_batch_size=int(
             os.environ.get("DRIFTER_TEI_MAX_BATCH_SIZE", "32")
@@ -157,6 +160,30 @@ def load_ragas_config() -> RagasConfig | None:
             m.strip() for m in metrics_raw.split(",") if m.strip()
         ]
     return RagasConfig(**kwargs)  # type: ignore[arg-type]
+
+
+def load_openai_config() -> OpenAIConfig | None:
+    """Load OpenAI config from DRIFTER_OPENAI_* env vars.
+
+    Returns None if DRIFTER_OPENAI_API_KEY is not set.
+    """
+    api_key = os.environ.get("DRIFTER_OPENAI_API_KEY")
+    if api_key is None:
+        return None
+    return OpenAIConfig(
+        api_key=api_key,
+        model_id=os.environ.get("DRIFTER_OPENAI_MODEL", "gpt-4o"),
+        base_url=os.environ.get(
+            "DRIFTER_OPENAI_BASE_URL", "https://api.openai.com"
+        ),
+        timeout_s=float(
+            os.environ.get("DRIFTER_OPENAI_TIMEOUT_S", "60.0")
+        ),
+        max_tokens=int(os.environ.get("DRIFTER_OPENAI_MAX_TOKENS", "1024")),
+        temperature=float(
+            os.environ.get("DRIFTER_OPENAI_TEMPERATURE", "0.1")
+        ),
+    )
 
 
 def load_gemini_config() -> GeminiConfig | None:

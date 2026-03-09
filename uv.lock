@@ -415,7 +415,9 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "google-genai" },
+    { name = "httpx" },
     { name = "langfuse" },
+    { name = "openai" },
     { name = "python-dotenv" },
     { name = "redis" },
 ]
@@ -444,8 +446,10 @@ observability = [
 requires-dist = [
     { name = "boto3", marker = "extra == 'adapters'", specifier = ">=1.34" },
     { name = "google-genai", specifier = ">=1.66.0" },
+    { name = "httpx", specifier = ">=0.27" },
     { name = "langfuse", specifier = ">=3.14.5" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10" },
+    { name = "openai", specifier = ">=1.0" },
     { name = "opensearch-py", marker = "extra == 'adapters'", specifier = ">=2.5" },
     { name = "opentelemetry-api", marker = "extra == 'observability'", specifier = ">=1.24" },
     { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'observability'", specifier = ">=1.24" },

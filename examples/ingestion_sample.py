@@ -43,7 +43,8 @@ def main() -> None:
         for r in results:
             print(f"  {r.work_item.source_id}: {r.work_item.action.value} → {r.outcome.value}")
             if r.source_ref:
-                print(f"    version={r.source_ref.version}, hash={r.source_ref.content_hash[:30]}...")
+                h = r.source_ref.content_hash[:30]
+                print(f"    version={r.source_ref.version}, hash={h}...")
 
         # Run 2: Unchanged → SKIP
         print("\n=== Run 2: No changes ===")
@@ -58,7 +59,8 @@ def main() -> None:
         for r in results:
             print(f"  {r.work_item.source_id}: {r.work_item.action.value} → {r.outcome.value}")
             if r.source_ref:
-                print(f"    version={r.source_ref.version}, hash={r.source_ref.content_hash[:30]}...")
+                h = r.source_ref.content_hash[:30]
+                print(f"    version={r.source_ref.version}, hash={h}...")
 
         # Run 4: Deleted file → TOMBSTONE
         filepath.unlink()

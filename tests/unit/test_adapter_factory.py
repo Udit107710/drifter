@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from libs.adapters.config import (
+    OpenAIConfig,
     OpenSearchConfig,
     OtelConfig,
     QdrantConfig,
@@ -19,6 +20,7 @@ from libs.adapters.factory import (
     create_span_collector,
     create_vector_store,
 )
+from libs.adapters.openai import OpenAIGenerator
 from libs.adapters.opensearch import OpenSearchLexicalStore, OpenSearchVectorStore
 from libs.adapters.otel import OtelSpanExporter
 from libs.adapters.qdrant import QdrantVectorStore
@@ -87,8 +89,14 @@ class TestCreateReranker:
         assert hasattr(reranker, "rerank")
         assert hasattr(reranker, "reranker_id")
 
-    def test_tei_config_returns_tei(self) -> None:
+    def test_tei_config_without_reranker_url_returns_stub(self) -> None:
         reranker = create_reranker(TeiConfig(), model_name="my-model")
+        assert not isinstance(reranker, TeiCrossEncoderReranker)
+        assert hasattr(reranker, "reranker_id")
+
+    def test_tei_config_with_reranker_url_returns_tei(self) -> None:
+        config = TeiConfig(reranker_url="http://localhost:8081")
+        reranker = create_reranker(config, model_name="my-model")
         assert isinstance(reranker, TeiCrossEncoderReranker)
 
 
@@ -96,6 +104,10 @@ class TestCreateGenerator:
     def test_no_config_returns_mock(self) -> None:
         gen = create_generator()
         assert isinstance(gen, MockGenerator)
+
+    def test_openai_config_returns_openai(self) -> None:
+        gen = create_generator(OpenAIConfig(api_key="test-key"))
+        assert isinstance(gen, OpenAIGenerator)
 
     def test_vllm_config_returns_vllm(self) -> None:
         gen = create_generator(VllmConfig())

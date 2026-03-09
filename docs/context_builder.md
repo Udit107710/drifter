@@ -99,7 +99,12 @@ Deduplication runs before packing so that budget is not wasted on redundant cont
 | `token_budget` | `int` | 3000 | Maximum tokens in the final context pack |
 | `diversity_weight` | `float` | 0.3 | Weight for novelty vs relevance (DiversityAwareBuilder) |
 | `max_chunks` | `int` | 0 | Maximum chunks to include (0 = no limit) |
+| `max_chunks_per_source` | `int` | 2 | Maximum chunks from any single source (0 = no cap) |
 | `deduplicate` | `bool` | `True` | Whether to remove duplicate chunks by content_hash |
+
+The `max_chunks_per_source` cap prevents a single document from dominating the context pack. When a chunk exceeds the cap for its source, it is excluded with reason `source_cap:<source_id>`. This works alongside token budgeting to ensure both token-level and source-level diversity.
+
+**Default token budget**: The bootstrap sets `token_budget=5000` by default. This is large enough to include sufficient evidence for multi-hop questions while staying within typical LLM context windows. Override with `--config token_budget=N`.
 
 ## Inspectability
 

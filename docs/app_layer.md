@@ -30,7 +30,11 @@ The registry wires both the **query pipeline** (retrieval → reranking → cont
 
 When no env vars are set, all services use in-memory/mock implementations. Production mode activates by setting `DRIFTER_QDRANT_HOST`, `DRIFTER_OPENSEARCH_HOSTS`, etc. The CLI auto-loads `.env` from the project root via `python-dotenv`.
 
-**LLM provider priority**: Gemini (`DRIFTER_GEMINI_API_KEY`) is preferred over vLLM (`DRIFTER_VLLM_URL`). If neither is set, `MockGenerator` is used.
+**LLM provider priority**: OpenAI (`DRIFTER_OPENAI_API_KEY`) is preferred over Gemini (`DRIFTER_GEMINI_API_KEY`), which is preferred over vLLM (`DRIFTER_VLLM_URL`). If none is set, `MockGenerator` is used.
+
+**Reranker priority**: When `DRIFTER_TEI_RERANKER_URL` is set and the TEI server is reachable, `TeiCrossEncoderReranker` is used for neural reranking. Otherwise, `FeatureBasedReranker` is used as a local fallback.
+
+**Default tuning**: Token budget is 5000, lexical RRF weight is 1.5, and `max_chunks_per_source=2` in the context builder to ensure source diversity.
 
 ### QueryOrchestrator (`orchestrators/query.py`)
 

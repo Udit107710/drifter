@@ -28,6 +28,7 @@ class FeatureWeights:
     freshness: float = 0.1
     title_match: float = 0.5
     source_type: float = 0.1
+    source_reference: float = 2.0
 
 
 @dataclass(frozen=True)

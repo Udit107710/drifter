@@ -20,11 +20,11 @@ class TestCreateRegistry:
         assert registry.generation_service is not None
         assert registry.evaluator is not None
         assert registry.experiment_runner is not None
-        assert registry.token_budget == 3000
+        assert registry.token_budget == 5000
 
     def test_token_budget_override(self) -> None:
-        registry = create_registry(overrides={"token_budget": "5000"})
-        assert registry.token_budget == 5000
+        registry = create_registry(overrides={"token_budget": "8000"})
+        assert registry.token_budget == 8000
 
     def test_reranker_top_n_override(self) -> None:
         registry = create_registry(overrides={"reranker_top_n": "10"})

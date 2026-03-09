@@ -32,6 +32,7 @@ class BuilderConfig:
     token_budget: int = 3000
     diversity_weight: float = 0.3
     max_chunks: int = 0  # 0 = no limit
+    max_chunks_per_source: int = 2  # 0 = no limit
     deduplicate: bool = True
 
 

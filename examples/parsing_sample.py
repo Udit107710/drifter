@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from libs.contracts.documents import RawDocument, SourceDocumentRef
@@ -24,7 +24,7 @@ def _make_ref(source_id: str, uri: str) -> SourceDocumentRef:
         source_id=source_id,
         uri=uri,
         content_hash="sha256:example",
-        fetched_at=datetime.now(timezone.utc),
+        fetched_at=datetime.now(UTC),
         version=1,
     )
 

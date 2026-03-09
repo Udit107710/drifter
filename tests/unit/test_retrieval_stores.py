@@ -8,13 +8,13 @@ from typing import Any
 
 import pytest
 
+from libs.adapters.config import OpenSearchConfig, QdrantConfig
 from libs.contracts.chunks import Chunk, ChunkLineage
 from libs.contracts.common import RetrievalMethod
 from libs.contracts.embeddings import ChunkEmbedding
 from libs.contracts.retrieval import RetrievalCandidate, RetrievalQuery
 from libs.retrieval.stores.memory_lexical_store import MemoryLexicalStore
 from libs.retrieval.stores.memory_vector_store import MemoryVectorStore
-from libs.adapters.config import OpenSearchConfig, QdrantConfig
 from libs.retrieval.stores.opensearch_lexical_store import OpenSearchLexicalStore
 from libs.retrieval.stores.opensearch_vector_store import OpenSearchVectorStore
 from libs.retrieval.stores.protocols import LexicalStore, VectorStore

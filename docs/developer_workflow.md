@@ -53,6 +53,50 @@ uv run rag debug-query "What is the main theme?"
 
 Without external services configured, the system uses in-memory stores and a mock generator.
 
+## Docker Services
+
+Start all infrastructure services:
+
+```bash
+# Core storage (Qdrant + OpenSearch)
+docker compose up -d qdrant opensearch
+
+# TEI embedding + reranking
+docker compose up -d tei-embedding tei-reranker
+
+# Langfuse observability (includes ClickHouse, Redis, Postgres, MinIO)
+docker compose up -d langfuse langfuse-worker
+```
+
+### TEI (Text Embeddings Inference)
+
+Two TEI instances serve different models:
+
+| Service | Port | Model | Purpose |
+|---------|------|-------|---------|
+| `tei-embedding` | 8080 | `BAAI/bge-small-en-v1.5` | Chunk and query embedding |
+| `tei-reranker` | 8081 | `BAAI/bge-reranker-base` | Cross-encoder reranking |
+
+```bash
+# Start TEI services
+docker compose up -d tei-embedding tei-reranker
+
+# Verify health
+curl http://localhost:8080/health
+curl http://localhost:8081/health
+```
+
+Configure in `.env`:
+
+```env
+DRIFTER_TEI_URL=http://localhost:8080
+DRIFTER_TEI_RERANKER_URL=http://localhost:8081
+```
+
+When `DRIFTER_TEI_RERANKER_URL` is set and the server is reachable, the bootstrap uses `TeiCrossEncoderReranker` instead of the local `FeatureBasedReranker`. When not set or unreachable, it falls back automatically.
+
+TEI models are downloaded on first startup and cached in Docker volumes (`tei_embedding_data`, `tei_reranker_data`).
+
 ## Testing
 
 ```bash
@@ -79,14 +123,16 @@ All external services are configured via `DRIFTER_*` env vars. When not set, in-
 |----------|---------|
 | `DRIFTER_QDRANT_HOST` | Qdrant vector store |
 | `DRIFTER_OPENSEARCH_HOSTS` | OpenSearch lexical/vector store |
-| `DRIFTER_TEI_URL` | Text Embeddings Inference |
+| `DRIFTER_TEI_URL` | Text Embeddings Inference (embeddings) |
+| `DRIFTER_TEI_RERANKER_URL` | TEI cross-encoder reranking |
+| `DRIFTER_OPENAI_API_KEY` | OpenAI LLM generation |
 | `DRIFTER_GEMINI_API_KEY` | Google Gemini LLM generation |
 | `DRIFTER_VLLM_URL` | vLLM generation |
 | `DRIFTER_OTEL_ENDPOINT` | OpenTelemetry collector |
 | `DRIFTER_LANGFUSE_PUBLIC_KEY` | Langfuse observability |
 | `DRIFTER_LANGFUSE_REDIS_URL` | Redis buffer for Langfuse span export |
 
-When both `DRIFTER_GEMINI_API_KEY` and `DRIFTER_VLLM_URL` are set, Gemini is preferred.
+When multiple LLM providers are configured, priority is: OpenAI > Gemini > vLLM.
 When both `DRIFTER_LANGFUSE_PUBLIC_KEY` and `DRIFTER_OTEL_ENDPOINT` are set, Langfuse is preferred.
 
 ### CLI Overrides

@@ -69,6 +69,8 @@ class GreedyContextBuilder:
         evidence: list[ContextItem] = []
         running_total = 0
         source_ids: set[str] = set()
+        source_counts: dict[str, int] = {}
+        max_per_source = self._config.max_chunks_per_source
 
         for rc in kept:
             chunk = rc.candidate.chunk
@@ -79,6 +81,19 @@ class GreedyContextBuilder:
                     ExclusionRecord(chunk_id=chunk.chunk_id, reason="zero_tokens", token_count=0)
                 )
                 continue
+
+            # Source diversity cap
+            if max_per_source > 0:
+                count = source_counts.get(chunk.source_id, 0)
+                if count >= max_per_source:
+                    exclusions.append(
+                        ExclusionRecord(
+                            chunk_id=chunk.chunk_id,
+                            reason=f"source_cap:source={chunk.source_id},limit={max_per_source}",
+                            token_count=tokens,
+                        )
+                    )
+                    continue
 
             if running_total + tokens > token_budget:
                 exclusions.append(
@@ -103,6 +118,7 @@ class GreedyContextBuilder:
             )
             running_total += tokens
             source_ids.add(chunk.source_id)
+            source_counts[chunk.source_id] = source_counts.get(chunk.source_id, 0) + 1
 
             if 0 < self._config.max_chunks <= len(evidence):
                 break

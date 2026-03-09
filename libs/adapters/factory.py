@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from libs.adapters.config import (
     GeminiConfig,
     LangfuseConfig,
+    OpenAIConfig,
     OpenSearchConfig,
     OtelConfig,
     QdrantConfig,
@@ -113,22 +114,34 @@ def create_reranker(config: TeiConfig | None = None, model_name: str = "cross-en
     """Create a reranker instance.
 
     Returns a :class:`CrossEncoderReranker` placeholder when *config* is
-    ``None``, or :class:`TeiCrossEncoderReranker` for a :class:`TeiConfig`.
+    ``None`` or has no ``reranker_url``, or :class:`TeiCrossEncoderReranker`
+    for a :class:`TeiConfig` with a reranker URL.
     """
-    if config is None:
+    if config is None or not config.reranker_url:
         from libs.reranking.cross_encoder_stub import CrossEncoderReranker
 
         return CrossEncoderReranker(model_name)
 
     from libs.adapters.tei import TeiCrossEncoderReranker
 
-    return TeiCrossEncoderReranker(config, model_name)
+    # Create a config pointing at the reranker endpoint
+    reranker_config = TeiConfig(
+        base_url=config.reranker_url,
+        model_id=config.reranker_model_id or config.model_id,
+        model_version=config.model_version,
+        timeout_s=config.timeout_s,
+        max_batch_size=config.max_batch_size,
+    )
+    return TeiCrossEncoderReranker(reranker_config, model_name)
 
 
-def create_generator(config: VllmConfig | GeminiConfig | None = None) -> Generator:
+def create_generator(
+    config: VllmConfig | GeminiConfig | OpenAIConfig | None = None,
+) -> Generator:
     """Create a generator instance.
 
     Returns :class:`MockGenerator` when *config* is ``None``,
+    :class:`OpenAIGenerator` for an :class:`OpenAIConfig`,
     :class:`GeminiGenerator` for a :class:`GeminiConfig`, or
     :class:`VllmGenerator` for a :class:`VllmConfig`.
     """
@@ -136,6 +149,11 @@ def create_generator(config: VllmConfig | GeminiConfig | None = None) -> Generat
         from libs.generation.mock_generator import MockGenerator
 
         return MockGenerator()
+
+    if isinstance(config, OpenAIConfig):
+        from libs.adapters.openai import OpenAIGenerator
+
+        return OpenAIGenerator(config)
 
     if isinstance(config, GeminiConfig):
         from libs.adapters.gemini import GeminiGenerator

@@ -6,10 +6,9 @@ import argparse
 import sys
 from pathlib import Path
 
-from libs.ingestion.models import SourceConfig, SourceType
-
 from apps.cli.errors import EXIT_CONFIG_ERROR, EXIT_FAILED, EXIT_SUCCESS
 from apps.cli.output import OutputRenderer
+from libs.ingestion.models import SourceConfig, SourceType
 from orchestrators.bootstrap import ServiceRegistry
 
 
@@ -38,10 +37,11 @@ def handle(
         return EXIT_FAILED
 
     # Register sources for each file
-    if target.is_file():
-        files = [target]
-    else:
-        files = sorted(p for p in target.rglob("*") if p.is_file())
+    files = (
+        [target]
+        if target.is_file()
+        else sorted(p for p in target.rglob("*") if p.is_file())
+    )
 
     if not files:
         renderer.render_error(f"No files found at: {target}")

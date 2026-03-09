@@ -1,41 +1,70 @@
-"""TEI query embedder adapter stub.
+"""TEI query embedder adapter.
 
-Satisfies the ``QueryEmbedder`` protocol without importing any
-external HTTP or TEI client libraries at module level.
+Implements the ``QueryEmbedder`` protocol using the Text Embeddings
+Inference (TEI) HTTP API.  Calls ``POST /embed`` with a single query string.
 """
 
 from __future__ import annotations
 
+import logging
+
+import httpx
+
 from libs.adapters.config import TeiConfig
 
-_NOT_IMPLEMENTED_MSG = (
-    "Implement TeiQueryEmbedder to use TEI for query embedding"
-)
+logger = logging.getLogger(__name__)
 
 
 class TeiQueryEmbedder:
-    """Stub adapter for Text Embeddings Inference query embedding.
+    """Query embedder backed by a TEI server.
 
-    Satisfies the ``QueryEmbedder`` protocol.  All data methods raise
-    ``NotImplementedError`` until a real implementation is provided.
+    Satisfies the ``QueryEmbedder`` protocol (``embed_query(text) -> list[float]``).
     """
 
     def __init__(self, config: TeiConfig) -> None:
         self._config = config
+        self._client: httpx.Client | None = None
 
     # -- Lifecycle -----------------------------------------------------------
 
     def connect(self) -> None:
-        """Connect to the TEI server.  TODO: implement."""
+        """Create the HTTP client."""
+        self._client = httpx.Client(
+            base_url=self._config.base_url,
+            timeout=self._config.timeout_s,
+        )
+        if self.health_check():
+            logger.info("TEI query embedder connected — %s", self._config.base_url)
+        else:
+            logger.warning(
+                "TEI query embedder created but server not reachable at %s",
+                self._config.base_url,
+            )
 
     def close(self) -> None:
-        """Close the TEI connection.  TODO: implement."""
+        """Close the HTTP client."""
+        if self._client is not None:
+            self._client.close()
+            self._client = None
 
     def health_check(self) -> bool:
-        """Return *False* — not connected."""
-        return False
+        """Return True if the server is reachable."""
+        if self._client is None:
+            return False
+        try:
+            resp = self._client.get("/health")
+            return resp.status_code == 200
+        except Exception:
+            return False
 
     # -- QueryEmbedder protocol ----------------------------------------------
 
     def embed_query(self, text: str) -> list[float]:
-        raise NotImplementedError(_NOT_IMPLEMENTED_MSG)
+        """Embed a query string into a dense vector."""
+        if self._client is None:
+            raise RuntimeError("TeiQueryEmbedder is not connected. Call connect() first.")
+
+        resp = self._client.post("/embed", json={"inputs": text})
+        resp.raise_for_status()
+        vectors: list[list[float]] = resp.json()
+        return vectors[0]
