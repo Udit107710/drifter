@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from datetime import UTC, datetime
 from typing import Any
@@ -10,6 +11,8 @@ from libs.context_builder.models import BuilderOutcome, BuilderResult
 from libs.context_builder.protocols import ContextBuilder
 from libs.contracts.context import ContextPack
 from libs.contracts.retrieval import RankedCandidate
+
+logger = logging.getLogger(__name__)
 
 
 class ContextBuilderService:
@@ -30,13 +33,20 @@ class ContextBuilderService:
             "token_budget": token_budget,
         }
 
+        logger.debug(
+            "context_builder: entry input_count=%d budget=%d",
+            len(candidates), token_budget,
+        )
+
         # Validate inputs
         if not query:
+            logger.warning("context_builder: empty query")
             return self._failed(
                 "query must not be empty",
                 start, debug, query or "unknown", token_budget,
             )
         if token_budget < 1:
+            logger.warning("context_builder: invalid token_budget=%d", token_budget)
             return self._failed(
                 f"token_budget must be >= 1, got {token_budget}",
                 start, debug, query, max(token_budget, 1),
@@ -45,6 +55,7 @@ class ContextBuilderService:
         try:
             result = self._builder.build(candidates, query, token_budget)
         except Exception as exc:
+            logger.error("context_builder: builder exception: %s", exc)
             return self._failed(
                 f"builder failed: input_count={len(candidates)} token_budget={token_budget}: {exc}",
                 start, debug, query, token_budget,
@@ -52,6 +63,10 @@ class ContextBuilderService:
 
         # Augment debug with service-level timing
         elapsed = (time.monotonic() - start) * 1000
+        logger.info(
+            "context_builder: success tokens_used=%d evidence_count=%d latency=%.1fms",
+            result.context_pack.total_tokens, len(result.context_pack.evidence), elapsed,
+        )
         result_debug = dict(result.debug)
         result_debug["service_latency_ms"] = elapsed
         # Return a new result with updated debug and timing

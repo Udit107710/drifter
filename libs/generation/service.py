@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from datetime import UTC, datetime
 from typing import Any
@@ -11,6 +12,8 @@ from libs.generation.citation_validator import DefaultCitationValidator
 from libs.generation.models import GenerationOutcome, GenerationResult, ValidationResult
 from libs.generation.protocols import CitationValidator, Generator
 from libs.generation.request_builder import GenerationRequestBuilder
+
+logger = logging.getLogger(__name__)
 
 
 class GenerationService:
@@ -47,8 +50,14 @@ class GenerationService:
             "context_total_tokens": context_pack.total_tokens,
         }
 
+        logger.debug(
+            "generation: entry generator_id=%s context_chunks=%d",
+            self._generator.generator_id, len(context_pack.evidence),
+        )
+
         # Empty context check
         if not context_pack.evidence:
+            logger.warning("generation: empty context trace_id=%s", trace_id)
             return self._build_result(
                 answer=None,
                 outcome=GenerationOutcome.EMPTY_CONTEXT,
@@ -60,6 +69,7 @@ class GenerationService:
         try:
             request = self._builder.build(context_pack, trace_id)
         except Exception as exc:
+            logger.error("generation: request build failed trace_id=%s: %s", trace_id, exc)
             return self._build_result(
                 answer=None,
                 outcome=GenerationOutcome.GENERATION_FAILED,
@@ -72,6 +82,10 @@ class GenerationService:
         try:
             answer = self._generator.generate(request)
         except Exception as exc:
+            logger.error(
+                "generation: failed generator=%s trace_id=%s: %s",
+                self._generator.generator_id, trace_id, exc,
+            )
             return self._build_result(
                 answer=None,
                 outcome=GenerationOutcome.GENERATION_FAILED,
@@ -107,6 +121,14 @@ class GenerationService:
         if validation and not validation.is_valid:
             outcome = GenerationOutcome.VALIDATION_FAILED
             errors = validation.errors
+            logger.warning("generation: validation failed trace_id=%s errors=%s", trace_id, errors)
+
+        if outcome == GenerationOutcome.SUCCESS:
+            logger.info(
+                "generation: success model_id=%s citations=%d tokens=%d",
+                answer.model_id, len(answer.citations),
+                answer.token_usage.prompt_tokens + answer.token_usage.completion_tokens,
+            )
 
         return self._build_result(
             answer=answer,

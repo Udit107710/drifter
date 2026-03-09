@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from datetime import UTC, datetime
 
 from libs.adapters.memory.chunk_repository import MemoryChunkRepository
@@ -476,6 +477,25 @@ class TestFailureHandling:
         chunks = [_make_chunk(content="trace test", chunk_id="chk-trace")]
         result = service.run(chunks, run_id="run-trace-42")
         assert any("run-trace-42" in e for e in result.errors)
+
+    def test_error_logged_on_failure(self, caplog: logging.LogRecord) -> None:  # type: ignore[override]
+        """Failure paths should emit ERROR logs."""
+        provider = DeterministicEmbeddingProvider()
+        chunk_repo = _FailingChunkRepository()
+        embedding_repo = MemoryEmbeddingRepository()
+        vector_writer = MemoryVectorIndexWriter()
+        lexical_writer = MemoryLexicalIndexWriter()
+        service = IndexingService(
+            embedding_provider=provider,
+            chunk_repo=chunk_repo,
+            embedding_repo=embedding_repo,
+            vector_writer=vector_writer,
+            lexical_writer=lexical_writer,
+        )
+        chunks = [_make_chunk(content="log test", chunk_id="chk-log")]
+        with caplog.at_level(logging.ERROR, logger="libs.indexing.service"):
+            service.run(chunks, run_id="run-log")
+        assert any("chunk_store failed" in r.message for r in caplog.records)
 
 
 # ── Index lifecycle ──────────────────────────────────────────────

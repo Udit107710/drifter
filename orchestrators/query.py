@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass, field
 
@@ -18,6 +19,8 @@ from libs.reranking.models import RerankerResult
 from libs.reranking.service import RerankerService
 from libs.retrieval.broker.models import BrokerOutcome, BrokerResult
 from libs.retrieval.broker.service import RetrievalBroker
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -71,12 +74,21 @@ class QueryOrchestrator:
         ctx = self._tracer.create_context(trace_id=trace_id)
         budget = token_budget or self._token_budget
 
+        logger.info(
+            "pipeline: entry trace_id=%s query=%r top_k=%d",
+            ctx.trace_id, query[:100], top_k,
+        )
+
         with pipeline_span(self._tracer, ctx, "rag-pipeline") as root:
             root.set_attribute("query", query)
             result = self._run_full_pipeline(ctx, query, top_k, budget, start)
             record_stage_result(
                 root, outcome=result.outcome,
                 input_count=1, output_count=1 if result.outcome == "success" else 0,
+            )
+            logger.info(
+                "pipeline: exit trace_id=%s outcome=%s latency=%.1fms",
+                ctx.trace_id, result.outcome, result.total_latency_ms,
             )
             return result
 
@@ -99,7 +111,12 @@ class QueryOrchestrator:
         )
 
         # --- Stage 1: Retrieval ---
+        logger.info("pipeline: stage=retrieval trace_id=%s", ctx.trace_id)
         broker_result = self._run_retrieval(ctx, retrieval_query)
+        logger.info(
+            "pipeline: retrieval done candidates=%d outcome=%s",
+            broker_result.candidate_count, broker_result.outcome.value,
+        )
         if broker_result.outcome == BrokerOutcome.FAILED:
             return QueryResult(
                 trace_id=ctx.trace_id,
@@ -121,12 +138,14 @@ class QueryOrchestrator:
             )
 
         # --- Stage 2: Reranking ---
+        logger.info("pipeline: stage=reranking trace_id=%s", ctx.trace_id)
         candidates = fused_list_to_retrieval_candidates(broker_result.candidates)
         reranker_result: RerankerResult | None = None
         try:
             reranker_result = self._run_reranking(ctx, candidates, retrieval_query)
             ranked = reranker_result.ranked_candidates
         except Exception as exc:
+            logger.warning("pipeline: reranking failed, using retrieval order: %s", exc)
             errors.append(f"Reranking failed, using retrieval order: {exc}")
             # Fallback: convert retrieval candidates to ranked candidates
             from libs.contracts.retrieval import RankedCandidate
@@ -142,9 +161,14 @@ class QueryOrchestrator:
             ]
 
         # --- Stage 3: Context Building ---
+        logger.info(
+            "pipeline: stage=context_build trace_id=%s ranked=%d",
+            ctx.trace_id, len(ranked),
+        )
         builder_result = self._run_context_build(ctx, ranked, query, budget)
 
         # --- Stage 4: Generation ---
+        logger.info("pipeline: stage=generation trace_id=%s", ctx.trace_id)
         generation_result = self._run_generation(ctx, builder_result, ctx.trace_id)
 
         outcome = "success"

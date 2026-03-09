@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from datetime import UTC, datetime
 from typing import Any
@@ -9,6 +10,8 @@ from typing import Any
 from libs.contracts.retrieval import RetrievalCandidate, RetrievalQuery
 from libs.reranking.models import RerankerOutcome, RerankerResult
 from libs.reranking.protocols import Reranker
+
+logger = logging.getLogger(__name__)
 
 
 class RerankerService:
@@ -35,9 +38,18 @@ class RerankerService:
         # Trace context for diagnostics (failure_mode_analysis skill)
         debug["trace_id"] = query.trace_id
 
+        logger.debug(
+            "reranker: entry reranker_id=%s input_count=%d",
+            self._reranker.reranker_id, len(candidates),
+        )
+
         # Empty check
         if not candidates:
             elapsed = (time.monotonic() - start) * 1000
+            logger.warning(
+                "reranker: no candidates provided reranker_id=%s",
+                self._reranker.reranker_id,
+            )
             return RerankerResult(
                 query=query,
                 ranked_candidates=[],
@@ -60,6 +72,10 @@ class RerankerService:
             ranked = self._reranker.rerank(candidates, query)
         except Exception as exc:
             elapsed = (time.monotonic() - start) * 1000
+            logger.error(
+                "reranker: exception reranker_id=%s input_count=%d: %s",
+                self._reranker.reranker_id, len(candidates), exc,
+            )
             errors.append(
                 f"reranker={self._reranker.reranker_id} "
                 f"trace_id={query.trace_id} "
@@ -85,6 +101,11 @@ class RerankerService:
 
         debug["output_count"] = len(ranked)
         elapsed = (time.monotonic() - start) * 1000
+
+        logger.info(
+            "reranker: success reranker_id=%s output_count=%d latency=%.1fms",
+            self._reranker.reranker_id, len(ranked), elapsed,
+        )
 
         return RerankerResult(
             query=query,

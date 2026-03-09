@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 
 from libs.contracts.chunks import Chunk
@@ -15,6 +16,8 @@ from libs.indexing.protocols import (
     VectorIndexWriter,
 )
 from libs.resilience import is_transient_error
+
+logger = logging.getLogger(__name__)
 
 
 def _classify_error(exc: Exception) -> ErrorClassification:
@@ -84,6 +87,7 @@ class IndexingService:
             try:
                 new_embeddings = self._embedding_provider.embed_chunks(to_embed)
             except Exception as exc:
+                logger.error("indexing: embedding failed run_id=%s: %s", run_id, exc)
                 errors.append(f"Embedding failed: {exc}")
                 return IndexingResult(
                     run_id=run_id,
@@ -106,6 +110,7 @@ class IndexingService:
             self._chunk_repo.store_batch(chunks)
         except Exception as exc:
             classification = _classify_error(exc)
+            logger.error("indexing: chunk_store failed run_id=%s: %s", run_id, exc)
             errors.append(f"run_id={run_id} chunk_store failed: {exc}")
             chunk_errors.extend(
                 ChunkError(
@@ -131,6 +136,7 @@ class IndexingService:
             vector_count = self._vector_writer.write_batch(all_embeddings, chunks)
         except Exception as exc:
             classification = _classify_error(exc)
+            logger.error("indexing: vector_index failed run_id=%s: %s", run_id, exc)
             errors.append(f"run_id={run_id} vector_index failed: {exc}")
             chunk_errors.extend(
                 ChunkError(
@@ -148,6 +154,7 @@ class IndexingService:
             lexical_count = self._lexical_writer.write_batch(chunks)
         except Exception as exc:
             classification = _classify_error(exc)
+            logger.error("indexing: lexical_index failed run_id=%s: %s", run_id, exc)
             errors.append(f"run_id={run_id} lexical_index failed: {exc}")
             chunk_errors.extend(
                 ChunkError(
@@ -165,6 +172,11 @@ class IndexingService:
             outcome = IndexingOutcome.PARTIAL
         else:
             outcome = IndexingOutcome.SUCCESS
+
+        logger.info(
+            "indexing: outcome=%s run_id=%s received=%d embedded=%d vector=%d lexical=%d",
+            outcome.value, run_id, len(chunks), len(new_embeddings), vector_count, lexical_count,
+        )
 
         return IndexingResult(
             run_id=run_id,

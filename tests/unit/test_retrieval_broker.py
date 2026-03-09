@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from datetime import UTC, datetime
 from typing import Any
 
@@ -634,3 +635,23 @@ class TestRetrievalBroker:
 
         # trace_id is on the query, check it's accessible
         assert result.query.trace_id == "trace-001"
+
+    def test_warning_logged_on_partial_failure(self, caplog: logging.LogRecord) -> None:  # type: ignore[override]
+        """Partial failure should emit a WARNING log."""
+        failing_vs = FailingVectorStore()
+        ls = MemoryLexicalStore(store_id="memory-lexical")
+        qe = DeterministicQueryEmbedder(dimensions=4)
+        config = BrokerConfig(mode=RetrievalMode.HYBRID)
+        broker = RetrievalBroker(
+            vector_store=failing_vs,  # type: ignore[arg-type]
+            lexical_store=ls,
+            query_embedder=qe,
+            config=config,
+        )
+        c1 = _make_chunk(content="lexical fallback content", chunk_id="chk-1")
+        ls.add(c1)
+
+        with caplog.at_level(logging.WARNING, logger="libs.retrieval.broker.service"):
+            broker.run(_make_query("lexical fallback"))
+
+        assert any("failed" in r.message for r in caplog.records)

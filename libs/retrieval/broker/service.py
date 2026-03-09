@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from datetime import UTC, datetime
 from typing import Any
@@ -25,6 +26,8 @@ from libs.retrieval.broker.protocols import (
     QueryNormalizer,
 )
 from libs.retrieval.stores.protocols import LexicalStore, VectorStore
+
+logger = logging.getLogger(__name__)
 
 
 def _classify_error(exc: Exception) -> ErrorClassification:
@@ -59,6 +62,7 @@ class RetrievalBroker:
         debug: dict[str, Any] = {"mode": self._config.mode.value, "rrf_k": self._config.rrf_k}
 
         # Step 1: Normalize query
+        logger.debug("broker: mode=%s query=%r", self._config.mode.value, query.raw_query[:100])
         normalized = self._normalizer.normalize(query.raw_query)
         effective_query = RetrievalQuery(
             raw_query=query.raw_query,
@@ -112,12 +116,26 @@ class RetrievalBroker:
             debug["query_vector"] = query_vector[:8]
             debug["query_vector_dimensions"] = len(query_vector)
 
+        # Log per-store results
+        for sr in store_results:
+            if sr.error is None:
+                logger.debug(
+                    "broker: store=%s method=%s count=%d latency=%.1fms",
+                    sr.store_id, sr.retrieval_method.value, sr.candidate_count, sr.latency_ms,
+                )
+            else:
+                logger.warning(
+                    "broker: store=%s method=%s failed: %s",
+                    sr.store_id, sr.retrieval_method.value, sr.error,
+                )
+
         # Check if all active stores failed
         active_count = int(use_dense) + int(use_lexical)
         failed_count = sum(1 for sr in store_results if sr.error is not None)
 
         if failed_count == active_count:
             elapsed = (time.monotonic() - start) * 1000
+            logger.error("broker: all stores failed, errors=%s", errors)
             return BrokerResult(
                 query=effective_query,
                 mode=self._config.mode,
@@ -161,6 +179,11 @@ class RetrievalBroker:
             outcome = BrokerOutcome.SUCCESS
 
         elapsed = (time.monotonic() - start) * 1000
+
+        logger.info(
+            "broker: outcome=%s candidates=%d latency=%.1fms",
+            outcome.value, len(fused), elapsed,
+        )
 
         return BrokerResult(
             query=effective_query,
@@ -207,6 +230,10 @@ class RetrievalBroker:
         except Exception as exc:
             elapsed = (time.monotonic() - t0) * 1000
             classification = _classify_error(exc)
+            logger.error(
+                "broker: dense fanout exception store=%s classification=%s: %s",
+                self._vector_store.store_id, classification.value, exc,
+            )
             return StoreResult(
                 store_id=self._vector_store.store_id,
                 retrieval_method=RetrievalMethod.DENSE,
@@ -246,6 +273,10 @@ class RetrievalBroker:
         except Exception as exc:
             elapsed = (time.monotonic() - t0) * 1000
             classification = _classify_error(exc)
+            logger.error(
+                "broker: lexical fanout exception store=%s classification=%s: %s",
+                self._lexical_store.store_id, classification.value, exc,
+            )
             return StoreResult(
                 store_id=self._lexical_store.store_id,
                 retrieval_method=RetrievalMethod.LEXICAL,

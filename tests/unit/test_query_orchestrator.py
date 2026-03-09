@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 
 from libs.chunking.token_counter import WhitespaceTokenCounter
@@ -183,3 +184,13 @@ class TestQueryOrchestratorObservability:
 
         for span in collector.spans:
             assert span.trace_id == "trace-abc"
+
+
+class TestQueryOrchestratorLogging:
+    """Test structured logging output."""
+
+    def test_pipeline_entry_logged(self, caplog: logging.LogRecord) -> None:  # type: ignore[override]
+        orchestrator, _, _, _ = _make_orchestrator()
+        with caplog.at_level(logging.INFO, logger="orchestrators.query"):
+            orchestrator.run("test query")
+        assert any("pipeline: entry" in r.message for r in caplog.records)
