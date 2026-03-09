@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Drifter is a **modular, production-grade Retrieval Augmented Generation (RAG) system** built from first principles. It is designed for learning, experimentation, and scalable deployment — not a toy chatbot.
 
-The project is currently in the **design and bootstrapping phase**. Architecture docs, implementation prompts, and Claude skills are established; source code is being built incrementally following the prompts in `prompts/` (numbered 00–16).
+The project has completed the **core implementation phase**. All 14 subsystems are functional with real adapter integrations (Qdrant, OpenSearch, TEI, OpenRouter, OpenAI, Gemini, HuggingFace, Langfuse). Architecture docs, implementation prompts, and Claude skills are established.
 
 ## Architecture
 
@@ -56,6 +56,13 @@ These typed models carry metadata, lineage, version info, and token counts:
 | Blob storage | MinIO (S3-compatible) | Planned |
 
 Core logic must not be tightly coupled to any of these.
+
+## Cross-cutting Capabilities
+
+- **Structured logging**: All core services use `logging.getLogger(__name__)` with DEBUG/INFO/WARNING/ERROR levels for operational visibility
+- **Retry with backoff**: `libs/resilience.py` provides `RetryConfig`, `resilient_call()`, and `async_resilient_call()` with exponential backoff and jitter for transient error recovery
+- **Async retrieval**: `AsyncRetrievalBroker` uses `asyncio.gather()` for parallel dense+lexical fanout, cutting hybrid retrieval latency in half
+- **Langfuse tracing**: Span buffer architecture (in-memory or Redis-backed) exports traces with correct naming via `propagate_attributes()`
 
 ## Development Workflow
 

@@ -203,6 +203,33 @@ The example creates six test chunks (three tech, three food), embeds them, popul
 - **Source caps**: limiting candidates per source for diversity.
 - **Debug payload**: inspecting internal tracing data.
 
+## Async Retrieval Broker
+
+`AsyncRetrievalBroker` (`libs/retrieval/broker/async_service.py`) provides the same retrieval pipeline but uses `asyncio.gather()` to run dense and lexical fanout in parallel. In hybrid mode this cuts latency from the sum of both stores to approximately the latency of the slower store.
+
+### Async Protocols
+
+| Protocol | File | Method |
+|----------|------|--------|
+| `AsyncVectorStore` | `libs/retrieval/stores/async_protocols.py` | `async_search(query, query_vector)` |
+| `AsyncLexicalStore` | `libs/retrieval/stores/async_protocols.py` | `async_search(query)` |
+| `AsyncQueryEmbedder` | `libs/retrieval/broker/async_protocols.py` | `async_embed_query(text)` |
+
+### Async Memory Store Wrappers
+
+For local testing, async wrappers delegate to the sync in-memory stores:
+
+- `AsyncMemoryVectorStore` (`libs/retrieval/stores/async_memory_vector_store.py`)
+- `AsyncMemoryLexicalStore` (`libs/retrieval/stores/async_memory_lexical_store.py`)
+
+### Bootstrap Wiring
+
+The `ServiceRegistry` includes an `async_retrieval_broker` field. The bootstrap creates it by wrapping the same underlying stores with async wrappers and a `_SyncToAsyncEmbedder` adapter.
+
+### Retry Support
+
+Both the sync `RetrievalBroker` and `AsyncRetrievalBroker` accept an optional `RetryConfig` from `libs/resilience.py`. When configured, store calls are wrapped with `resilient_call()` (sync) or `async_resilient_call()` (async) for exponential backoff on transient errors.
+
 ## Source Files
 
 | File | Description |
@@ -210,8 +237,13 @@ The example creates six test chunks (three tech, three food), embeds them, popul
 | `libs/retrieval/broker/__init__.py` | Public API re-exports |
 | `libs/retrieval/broker/models.py` | `BrokerConfig`, `BrokerResult`, `FusedCandidate`, `StoreResult`, `RetrievalMode`, `BrokerOutcome` |
 | `libs/retrieval/broker/protocols.py` | `QueryEmbedder`, `QueryNormalizer`, `PassthroughNormalizer` |
+| `libs/retrieval/broker/async_protocols.py` | `AsyncQueryEmbedder` |
 | `libs/retrieval/broker/fusion.py` | `reciprocal_rank_fusion` implementation |
 | `libs/retrieval/broker/dedup.py` | `apply_source_caps` implementation |
-| `libs/retrieval/broker/service.py` | `RetrievalBroker` orchestrator |
+| `libs/retrieval/broker/service.py` | `RetrievalBroker` (sync) orchestrator |
+| `libs/retrieval/broker/async_service.py` | `AsyncRetrievalBroker` (async, parallel fanout) |
+| `libs/retrieval/stores/async_protocols.py` | `AsyncVectorStore`, `AsyncLexicalStore` |
+| `libs/retrieval/stores/async_memory_vector_store.py` | Async wrapper around any `VectorStore` |
+| `libs/retrieval/stores/async_memory_lexical_store.py` | Async wrapper around any `LexicalStore` |
 | `libs/embeddings/query_embedder.py` | `DeterministicQueryEmbedder` for testing |
 | `examples/retrieval_broker_sample.py` | Runnable demo |

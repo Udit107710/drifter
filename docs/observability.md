@@ -25,7 +25,8 @@ Query/Pipeline Stage
     │
     ├── InMemoryCollector (testing/debug)
     ├── NoOpCollector (disabled)
-    └── [Future: OTel SDK export]
+    ├── OtelSpanExporter (OpenTelemetry OTLP export)
+    └── LangfuseSpanExporter (Langfuse trace export)
 ```
 
 ## Components
@@ -68,7 +69,18 @@ A `@runtime_checkable` protocol with a single method: `collect(span: Span) -> No
 
 **NoOpCollector**: Discards all spans. Used when observability is disabled or in benchmarks where collection overhead must be zero.
 
-Future collectors (e.g. an OTel SDK exporter) implement the same protocol and can be swapped in without changing any pipeline code.
+Two production collectors are implemented:
+
+**OtelSpanExporter** (`libs/adapters/otel/exporter.py`): Exports spans via OTLP (gRPC or HTTP) to any OTel-compatible backend (Jaeger, Grafana Tempo, etc.). Configured via `DRIFTER_OTEL_ENDPOINT`.
+
+**LangfuseSpanExporter** (`libs/adapters/langfuse/exporter.py`): Exports spans to Langfuse for LLM-focused observability. Features:
+- Span buffering (in-memory or Redis-backed) — children are buffered until the root arrives, then flushed root-first
+- `propagate_attributes(trace_name=...)` ensures traces keep the root span name
+- Generation observations include model ID and token usage
+- Wall-clock timestamps (`start_wall`, `end_wall`, `duration_ms`) are included in span metadata
+- Configured via `DRIFTER_LANGFUSE_PUBLIC_KEY`, `_SECRET_KEY`, `_HOST`, `_REDIS_URL`
+
+The bootstrap prefers Langfuse over OTel when both are configured. Additional collectors can be added by implementing the `SpanCollector` protocol.
 
 ### Tracer (`tracer.py`)
 
@@ -239,13 +251,20 @@ Every abstraction in this subsystem maps directly to an OTel concept:
 | `HistogramMetric` | `opentelemetry.metrics.Histogram` |
 | `Span.to_dict()` | OTel protobuf/JSON span export format |
 
-When OTel SDK integration is needed:
-1. Implement a new `SpanCollector` that wraps an OTel `SpanExporter`
-2. Map `Span.to_dict()` output to OTel's `ReadableSpan` format
-3. Replace `InMemoryCollector` with the OTel-backed collector in production config
-4. Metrics can similarly be bridged to OTel's metrics API
+Both `OtelSpanExporter` and `LangfuseSpanExporter` implement the `SpanCollector` protocol. The bootstrap selects the collector based on which env vars are set (Langfuse preferred when both are configured). No pipeline code changes are required — only the collector wiring in `orchestrators/bootstrap.py`.
 
-No pipeline code changes are required -- only the collector and metric wiring in the application bootstrap.
+## Structured Logging
+
+All core services use Python's `logging` module with `logger = logging.getLogger(__name__)`:
+
+| Level | Usage |
+|-------|-------|
+| `DEBUG` | Stage entry with input parameters |
+| `INFO` | Stage completion with output counts and latency; pipeline entry/exit |
+| `WARNING` | Degraded operation (reranking fallback, partial store failure, empty input) |
+| `ERROR` | Stage failure with exception details |
+
+Enable verbose logging with `rag -v` or by setting `DRIFTER_LOG_LEVEL=DEBUG`.
 
 ## Skills Applied
 

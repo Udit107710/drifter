@@ -153,7 +153,7 @@ query normalization → retrieval broker → reranking → context builder → g
    - output ContextPack with selected chunks, token counts, and lineage
 6. Generation
    - construct prompt: system instructions + ContextPack + user query
-   - call LLM (vLLM adapter)
+   - call LLM (OpenRouter, OpenAI, Gemini, or vLLM adapter)
    - parse response into GeneratedAnswer with Citations
    - each Citation references a specific chunk in the ContextPack
 7. Verification (optional)
@@ -434,7 +434,7 @@ Factory functions in `libs/adapters/factory.py` create adapter instances with in
 
 Adapter lifecycle is managed through two runtime-checkable protocols in `libs/adapters/protocols.py`: `Connectable` (for adapters that need `connect()`) and `HealthCheckable` (for adapters that support `health_check()`). The bootstrap uses `isinstance` checks against these protocols instead of `hasattr` duck-typing.
 
-Error classification is centralized in `libs/resilience.py`, which provides `is_transient_error()` — a shared function that detects retryable errors (stdlib network errors and httpx-specific timeouts). Both the retrieval broker and indexing service delegate to this function.
+Resilience is centralized in `libs/resilience.py`, which provides `is_transient_error()` for error classification and `resilient_call()` / `async_resilient_call()` for retry with exponential backoff and jitter. Both the retrieval broker and indexing service accept an optional `RetryConfig`.
 
 The bootstrap loads configs from `DRIFTER_*` env vars and applies optional `--config` CLI overrides (rejecting secret fields).
 
@@ -447,14 +447,24 @@ drifter/
 ├── libs/          # pure libraries — no cross-library imports
 ├── orchestrators/
 │   ├── __init__.py
-│   ├── bootstrap.py   # ServiceRegistry + create_registry() (composition root)
-│   ├── ingestion.py   # IngestionOrchestrator
-│   └── query.py       # QueryOrchestrator
+│   ├── bootstrap.py     # ServiceRegistry + create_registry() (composition root)
+│   ├── ingestion.py     # IngestionOrchestrator
+│   ├── query.py         # QueryOrchestrator (sync)
+│   └── async_query.py   # AsyncQueryOrchestrator (async retrieval, sync stages 2-4)
 ├── apps/
 │   └── cli/           # thin presentation layer (argparse, output rendering)
 ```
 
 The `orchestrators/bootstrap.py` module is the only place that knows about concrete adapter classes. `orchestrators/` only knows about library protocols and contracts. `libs/` knows about nothing except `libs/contracts`.
+
+### Resilience
+
+`libs/resilience.py` provides shared retry infrastructure:
+
+- `is_transient_error(exc)` classifies network/timeout errors as retryable
+- `RetryConfig` controls max retries, base delay, max delay, and jitter factor
+- `resilient_call(fn, config)` and `async_resilient_call(fn, config)` wrap calls with exponential backoff
+- Both `RetrievalBroker` and `IndexingService` accept optional `RetryConfig` for store/embedding calls
 
 ### Dependency direction
 

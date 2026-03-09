@@ -55,16 +55,17 @@ No upward imports. No circular dependencies.
 |---|---|
 | `pyproject.toml` | Project metadata, dependencies, tool configuration |
 | `Makefile` | Common development commands (install, test, lint, fmt) |
-| `docker-compose.yml` | Optional infrastructure for real backends (Qdrant, OpenSearch, Jaeger) |
+| `docker-compose.yml` | Optional infrastructure for real backends (Qdrant, OpenSearch, Langfuse, Jaeger, Redis) |
 | `.env.example` | Configuration template — copy to `.env` for local use |
 | `AGENTS.md` | Operational rules for AI agents working in this repo |
 | `MASTER_PROMPT.md` | Persona and working rules for Claude Code |
 | `CLAUDE.md` | Quick-reference guidance for Claude Code |
 | `orchestrators/bootstrap.py` | Composition root — creates ServiceRegistry from env vars |
-| `orchestrators/query.py` | QueryOrchestrator — 4-stage query pipeline |
+| `orchestrators/query.py` | QueryOrchestrator — 4-stage sync query pipeline |
+| `orchestrators/async_query.py` | AsyncQueryOrchestrator — async retrieval, sync stages 2-4 |
 | `orchestrators/ingestion.py` | IngestionOrchestrator — ingest/parse/chunk/index pipeline |
 | `libs/adapters/factory.py` | Adapter factory functions with in-memory fallbacks (all return typed Protocols) |
-| `libs/resilience.py` | Shared error classification (`is_transient_error`) for retry/resilience decisions |
+| `libs/resilience.py` | Transient error classification, `RetryConfig`, `resilient_call()` / `async_resilient_call()` with exponential backoff and jitter |
 | `libs/adapters/env.py` | Environment variable loaders for all providers |
 | `libs/adapters/config.py` | Configuration dataclasses for all adapters |
 | `examples/` | 14 runnable sample scripts demonstrating each subsystem |
