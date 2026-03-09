@@ -30,9 +30,13 @@ class TestCreateRegistry:
         registry = create_registry(overrides={"reranker_top_n": "10"})
         assert registry.reranker_service._top_n == 10
 
-    def test_indexing_service_is_none_by_default(self) -> None:
+    def test_indexing_service_is_wired(self) -> None:
         registry = create_registry()
-        assert registry.indexing_service is None
+        assert registry.indexing_service is not None
+
+    def test_ingestion_orchestrator_is_wired(self) -> None:
+        registry = create_registry()
+        assert registry.ingestion_orchestrator is not None
 
 
 class TestSecretRejection:

@@ -18,12 +18,19 @@ from libs.adapters.env import (
     load_vllm_config,
 )
 from libs.adapters.factory import (
+    create_embedding_provider,
     create_generator,
     create_lexical_store,
     create_query_embedder,
     create_span_collector,
     create_vector_store,
 )
+from libs.adapters.memory.chunk_repository import MemoryChunkRepository
+from libs.adapters.memory.crawl_state_repository import MemoryCrawlStateRepository
+from libs.adapters.memory.embedding_repository import MemoryEmbeddingRepository
+from libs.adapters.memory.source_repository import MemorySourceRepository
+from libs.adapters.store_writers import LexicalStoreWriter, VectorStoreWriter
+from libs.chunking.strategies.recursive import RecursiveStructureChunker
 from libs.chunking.token_counter import WhitespaceTokenCounter
 from libs.context_builder.greedy_builder import GreedyContextBuilder
 from libs.context_builder.service import ContextBuilderService
@@ -34,10 +41,16 @@ from libs.generation.citation_validator import DefaultCitationValidator
 from libs.generation.request_builder import GenerationRequestBuilder
 from libs.generation.service import GenerationService
 from libs.indexing.service import IndexingService
+from libs.ingestion.change_detector import detect
+from libs.ingestion.connectors.filesystem import LocalFilesystemConnector
+from libs.ingestion.service import IngestionService
 from libs.observability.tracer import Tracer
+from libs.parsing.parsers.markdown import MarkdownParser
+from libs.parsing.parsers.plain_text import PlainTextParser
 from libs.reranking.feature_reranker import FeatureBasedReranker
 from libs.reranking.service import RerankerService
 from libs.retrieval.broker.service import RetrievalBroker
+from orchestrators.ingestion import IngestionOrchestrator
 
 # Fields that must not be overridden via --config for security.
 _SECRET_FIELDS = frozenset({
@@ -58,6 +71,8 @@ class ServiceRegistry:
     context_builder_service: ContextBuilderService
     generation_service: GenerationService
     indexing_service: IndexingService | None
+    ingestion_orchestrator: IngestionOrchestrator | None
+    source_repo: Any
     evaluator: RetrievalEvaluator
     experiment_runner: ExperimentRunner
     token_budget: int
@@ -148,10 +163,47 @@ def create_registry(overrides: dict[str, Any] | None = None) -> ServiceRegistry:
         citation_validator=citation_validator,
     )
 
-    # --- Indexing (None when no embedding provider available) ---
-    # IndexingService requires repos and writers that we don't have in-memory
-    # stubs for in the factory layer yet. Marked as optional.
-    indexing_service: IndexingService | None = None
+    # --- Indexing ---
+    embedding_provider = create_embedding_provider(tei_config)
+    chunk_repo = MemoryChunkRepository()
+    embedding_repo = MemoryEmbeddingRepository()
+    vector_writer = VectorStoreWriter(vector_store)
+    lexical_writer = LexicalStoreWriter(lexical_store)
+
+    indexing_service = IndexingService(
+        embedding_provider=embedding_provider,
+        chunk_repo=chunk_repo,
+        embedding_repo=embedding_repo,
+        vector_writer=vector_writer,
+        lexical_writer=lexical_writer,
+    )
+
+    # --- Ingestion orchestrator ---
+    source_repo = MemorySourceRepository()
+    crawl_state_repo = MemoryCrawlStateRepository()
+    connector = LocalFilesystemConnector()
+
+    ingestion_service = IngestionService(
+        source_repo=source_repo,
+        crawl_state_repo=crawl_state_repo,
+        connector=connector,
+        change_detector=detect,
+    )
+
+    parser_registry = {
+        "text/markdown": MarkdownParser(),
+        "text/x-markdown": MarkdownParser(),
+        "text/plain": PlainTextParser(),
+    }
+    chunking_strategy = RecursiveStructureChunker()
+
+    ingestion_orchestrator = IngestionOrchestrator(
+        tracer=tracer,
+        ingestion_service=ingestion_service,
+        parser_registry=parser_registry,
+        chunking_strategy=chunking_strategy,
+        indexing_service=indexing_service,
+    )
 
     # --- Evaluation ---
     evaluator = RetrievalEvaluator()
@@ -165,6 +217,8 @@ def create_registry(overrides: dict[str, Any] | None = None) -> ServiceRegistry:
         context_builder_service=context_builder_service,
         generation_service=generation_service,
         indexing_service=indexing_service,
+        ingestion_orchestrator=ingestion_orchestrator,
+        source_repo=source_repo,
         evaluator=evaluator,
         experiment_runner=experiment_runner,
         token_budget=token_budget,

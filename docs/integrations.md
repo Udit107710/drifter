@@ -12,6 +12,7 @@ Drifter uses adapter stubs under `libs/adapters/` to isolate external provider d
 | TEI (embeddings) | `libs.adapters.tei.TeiEmbeddingProvider` | `EmbeddingProvider` |
 | TEI (query) | `libs.adapters.tei.TeiQueryEmbedder` | `QueryEmbedder` |
 | TEI (reranking) | `libs.adapters.tei.TeiCrossEncoderReranker` | `Reranker` |
+| Google Gemini | `libs.adapters.gemini.GeminiGenerator` | `Generator` |
 | vLLM | `libs.adapters.vllm.VllmGenerator` | `Generator` |
 | Unstructured | `libs.adapters.unstructured.UnstructuredPdfParser` | `PdfParserBase` |
 | Apache Tika | `libs.adapters.tika.TikaPdfParser` | `PdfParserBase` |
@@ -31,6 +32,7 @@ Set `DRIFTER_*` env vars to configure providers. The `libs.adapters.env` module 
 | Qdrant | `DRIFTER_QDRANT_HOST` | `_PORT`, `_GRPC_PORT`, `_API_KEY`, `_COLLECTION`, `_TIMEOUT_S`, `_USE_TLS` |
 | OpenSearch | `DRIFTER_OPENSEARCH_HOSTS` | `_USERNAME`, `_PASSWORD`, `_INDEX_PREFIX`, `_USE_SSL`, `_TIMEOUT_S` |
 | TEI | `DRIFTER_TEI_URL` | `_MODEL_ID`, `_MODEL_VERSION`, `_TIMEOUT_S`, `_MAX_BATCH_SIZE` |
+| Gemini | `DRIFTER_GEMINI_API_KEY` | `_MODEL` (default: gemini-2.5-flash), `_TIMEOUT_S`, `_MAX_TOKENS`, `_TEMPERATURE` |
 | vLLM | `DRIFTER_VLLM_URL` | `_MODEL_ID`, `_API_KEY`, `_TIMEOUT_S`, `_MAX_TOKENS`, `_TEMPERATURE` |
 | Unstructured | `DRIFTER_UNSTRUCTURED_URL` | `_STRATEGY`, `_TIMEOUT_S` |
 | Tika | `DRIFTER_TIKA_URL` | `_TIMEOUT_S` |

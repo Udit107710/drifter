@@ -57,11 +57,38 @@ Full pipeline, show generation details.
 
 ### `rag ingest`
 
-Run ingestion pipeline.
+Ingest documents from a local file or directory. Runs the full pipeline: read → parse → chunk → embed → index into vector and lexical stores.
 
 | Arg | Default | Description |
 |-----|---------|-------------|
+| `--path` | required | File or directory to ingest |
 | `--run-id` | auto | Explicit run ID for replay detection |
+
+Supported file types: Markdown (`.md`), plain text (`.txt`).
+
+**Examples:**
+
+```bash
+# Ingest a directory of markdown files
+uv run rag ingest --path data/novel_chapters/
+
+# Ingest a single file
+uv run rag ingest --path data/notes.md
+
+# With explicit run ID for idempotent replay
+uv run rag ingest --path data/novel_chapters/ --run-id my-run-001
+```
+
+**Output:**
+```
+trace: 28de3d36...
+run_id: ingest-20260309-134436
+latency: 1100.3ms
+
+Documents ingested: 24
+Chunks produced:    96
+Chunks indexed:     192
+```
 
 ### `rag index`
 

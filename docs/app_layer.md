@@ -23,10 +23,14 @@ The composition root. Creates all services from environment configuration:
 1. Loads configs from `DRIFTER_*` env vars (`libs/adapters/env`)
 2. Applies `--config` overrides (rejects secret fields)
 3. Calls adapter factories (`libs/adapters/factory`)
-4. Constructs library services
+4. Constructs library services (query pipeline, ingestion pipeline)
 5. Returns `ServiceRegistry` dataclass
 
-When no env vars are set, all services use in-memory/mock implementations. Production mode activates by setting `DRIFTER_QDRANT_HOST`, `DRIFTER_OPENSEARCH_HOSTS`, etc.
+The registry wires both the **query pipeline** (retrieval → reranking → context → generation) and the **ingestion pipeline** (ingest → parse → chunk → embed → index). Store-backed index writers (`libs/adapters/store_writers.py`) bridge the `VectorStore`/`LexicalStore` protocols to the `VectorIndexWriter`/`LexicalIndexWriter` protocols, so the `IndexingService` writes directly to real stores.
+
+When no env vars are set, all services use in-memory/mock implementations. Production mode activates by setting `DRIFTER_QDRANT_HOST`, `DRIFTER_OPENSEARCH_HOSTS`, etc. The CLI auto-loads `.env` from the project root via `python-dotenv`.
+
+**LLM provider priority**: Gemini (`DRIFTER_GEMINI_API_KEY`) is preferred over vLLM (`DRIFTER_VLLM_URL`). If neither is set, `MockGenerator` is used.
 
 ### QueryOrchestrator (`orchestrators/query.py`)
 
@@ -45,10 +49,12 @@ Partial pipeline methods: `run_retrieve_only()`, `run_through_rerank()`, `run_th
 
 Composes the ingestion pipeline:
 
-1. **Ingestion** — `IngestionService.run()` → `list[IngestionResult]`
-2. **Parsing** — `DocumentParser.parse()` → `CanonicalDocument`
-3. **Chunking** — `ChunkingStrategy.chunk()` → `list[Chunk]`
-4. **Indexing** — `IndexingService.run()` → `IndexingResult`
+1. **Ingestion** — `IngestionService.run()` → `list[IngestionResult]` (fetch files, detect changes)
+2. **Parsing** — `DocumentParser.parse()` → `CanonicalDocument` (Markdown or plain text)
+3. **Chunking** — `ChunkingStrategy.chunk()` → `list[Chunk]` (recursive structure-aware)
+4. **Indexing** — `IndexingService.run()` → `IndexingResult` (embed + write to vector and lexical stores)
+
+The CLI `rag ingest --path <dir>` command registers each file as a source, then runs the orchestrator. Sources are tracked with content hashing for change detection and replay safety.
 
 ## CLI
 
