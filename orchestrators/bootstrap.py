@@ -11,6 +11,7 @@ from typing import Any
 
 from libs.adapters.env import (
     load_gemini_config,
+    load_langfuse_config,
     load_opensearch_config,
     load_otel_config,
     load_qdrant_config,
@@ -108,12 +109,14 @@ def create_registry(overrides: dict[str, Any] | None = None) -> ServiceRegistry:
     vllm_config = load_vllm_config()
     gemini_config = load_gemini_config()
     otel_config = load_otel_config()
+    langfuse_config = load_langfuse_config()
 
     # --- Token budget (overridable) ---
     token_budget = int(overrides.get("token_budget", 3000))
 
-    # --- Observability ---
-    collector = create_span_collector(otel_config)
+    # --- Observability (prefer Langfuse over OTel) ---
+    collector_config = langfuse_config or otel_config
+    collector = create_span_collector(collector_config)
     tracer = Tracer(collector=collector)
 
     # --- Observability: connect if real ---

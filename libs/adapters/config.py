@@ -202,3 +202,23 @@ class OtelConfig:
             raise ValueError("protocol must be one of: http/protobuf, grpc")
         if self.export_interval_ms <= 0:
             raise ValueError("export_interval_ms must be > 0")
+
+
+@dataclass(frozen=True)
+class LangfuseConfig:
+    """Configuration for Langfuse observability."""
+
+    public_key: str = ""
+    secret_key: str = ""
+    host: str = "http://localhost:3000"
+
+    def __post_init__(self) -> None:
+        if not self.public_key:
+            raise ValueError("public_key must not be empty")
+        if not self.secret_key:
+            raise ValueError("secret_key must not be empty")
+        if not self.host:
+            raise ValueError("host must not be empty")
+
+    def __repr__(self) -> str:
+        return _masked_repr(self, ("secret_key",))

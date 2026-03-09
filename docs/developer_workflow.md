@@ -22,7 +22,9 @@ DRIFTER_OPENSEARCH_USERNAME=admin
 DRIFTER_OPENSEARCH_PASSWORD=admin
 DRIFTER_OPENSEARCH_USE_SSL=false
 DRIFTER_GEMINI_API_KEY=your-api-key-here
-DRIFTER_OTEL_ENDPOINT=http://localhost:4318
+DRIFTER_LANGFUSE_PUBLIC_KEY=pk-lf-drifter-dev
+DRIFTER_LANGFUSE_SECRET_KEY=sk-lf-drifter-dev
+DRIFTER_LANGFUSE_HOST=http://localhost:3000
 ```
 
 ### 2. Ingest data
@@ -80,8 +82,10 @@ All external services are configured via `DRIFTER_*` env vars. When not set, in-
 | `DRIFTER_GEMINI_API_KEY` | Google Gemini LLM generation |
 | `DRIFTER_VLLM_URL` | vLLM generation |
 | `DRIFTER_OTEL_ENDPOINT` | OpenTelemetry collector |
+| `DRIFTER_LANGFUSE_PUBLIC_KEY` | Langfuse observability |
 
 When both `DRIFTER_GEMINI_API_KEY` and `DRIFTER_VLLM_URL` are set, Gemini is preferred.
+When both `DRIFTER_LANGFUSE_PUBLIC_KEY` and `DRIFTER_OTEL_ENDPOINT` are set, Langfuse is preferred.
 
 ### CLI Overrides
 
@@ -145,3 +149,34 @@ uv run rag --trace my-debug-123 ask "query"
 ```
 
 Trace IDs propagate through all pipeline stages and appear in all observability spans.
+
+## Langfuse Observability
+
+Langfuse provides LLM-focused observability with traces, spans, and generation tracking.
+
+### Setup
+
+```bash
+# Start Langfuse and its dependencies (ClickHouse, Redis, Postgres, MinIO)
+docker compose up -d langfuse langfuse-worker
+
+# Langfuse UI: http://localhost:3000
+# Login: admin@drifter.local / drifter123!
+```
+
+### What's Tracked
+
+- **Traces**: One per pipeline execution, grouped by trace_id
+- **Spans**: Retrieval, reranking, and context building stages
+- **Generations**: LLM calls with model name, token usage (prompt/completion), and latency
+- **Parent-child relationships**: Pipeline stages appear as nested observations
+
+### Configuration
+
+```env
+DRIFTER_LANGFUSE_PUBLIC_KEY=pk-lf-drifter-dev
+DRIFTER_LANGFUSE_SECRET_KEY=sk-lf-drifter-dev
+DRIFTER_LANGFUSE_HOST=http://localhost:3000
+```
+
+When Langfuse is configured, it takes priority over OpenTelemetry (Jaeger).

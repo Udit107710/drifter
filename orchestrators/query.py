@@ -275,6 +275,12 @@ class QueryOrchestrator:
                 input_count=len(builder_result.context_pack.evidence),
                 output_count=1 if result.answer else 0,
             )
+            # Enrich span with LLM metadata for observability exporters
+            span.set_attribute("generator_id", result.generator_id)
+            if result.answer is not None:
+                span.set_attribute("model_id", result.answer.model_id)
+                span.set_attribute("prompt_tokens", result.answer.token_usage.prompt_tokens)
+                span.set_attribute("completion_tokens", result.answer.token_usage.completion_tokens)
             return result
 
 

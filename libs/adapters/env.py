@@ -6,6 +6,7 @@ import os
 
 from libs.adapters.config import (
     GeminiConfig,
+    LangfuseConfig,
     OpenSearchConfig,
     OtelConfig,
     QdrantConfig,
@@ -174,6 +175,21 @@ def load_gemini_config() -> GeminiConfig | None:
         temperature=float(
             os.environ.get("DRIFTER_GEMINI_TEMPERATURE", "0.1")
         ),
+    )
+
+
+def load_langfuse_config() -> LangfuseConfig | None:
+    """Load Langfuse config from DRIFTER_LANGFUSE_* env vars.
+
+    Returns None if DRIFTER_LANGFUSE_PUBLIC_KEY is not set.
+    """
+    public_key = os.environ.get("DRIFTER_LANGFUSE_PUBLIC_KEY")
+    if public_key is None:
+        return None
+    return LangfuseConfig(
+        public_key=public_key,
+        secret_key=os.environ.get("DRIFTER_LANGFUSE_SECRET_KEY", ""),
+        host=os.environ.get("DRIFTER_LANGFUSE_HOST", "http://localhost:3000"),
     )
 
 

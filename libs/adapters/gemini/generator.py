@@ -48,15 +48,28 @@ class GeminiGenerator:
         if self._client is None:
             raise RuntimeError("GeminiGenerator is not connected. Call connect() first.")
 
-        response = self._client.models.generate_content(
-            model=self._config.model_id,
-            contents=request.rendered_prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=request.system_prompt,
-                temperature=self._config.temperature,
-                max_output_tokens=self._config.max_tokens,
-            ),
-        )
+        # Some models (e.g. Gemma) don't support system_instruction.
+        # Try with it first, fall back to prepending it to the prompt.
+        try:
+            response = self._client.models.generate_content(
+                model=self._config.model_id,
+                contents=request.rendered_prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=request.system_prompt,
+                    temperature=self._config.temperature,
+                    max_output_tokens=self._config.max_tokens,
+                ),
+            )
+        except Exception:
+            combined = f"{request.system_prompt}\n\n{request.rendered_prompt}"
+            response = self._client.models.generate_content(
+                model=self._config.model_id,
+                contents=combined,
+                config=types.GenerateContentConfig(
+                    temperature=self._config.temperature,
+                    max_output_tokens=self._config.max_tokens,
+                ),
+            )
 
         answer_text = response.text or ""
 

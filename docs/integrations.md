@@ -18,6 +18,7 @@ Drifter uses adapter stubs under `libs/adapters/` to isolate external provider d
 | Apache Tika | `libs.adapters.tika.TikaPdfParser` | `PdfParserBase` |
 | Ragas | `libs.adapters.ragas.RagasAnswerEvaluator` | (standalone) |
 | OpenTelemetry | `libs.adapters.otel.OtelSpanExporter` | `SpanCollector` |
+| Langfuse | `libs.adapters.langfuse.LangfuseSpanExporter` | `SpanCollector` |
 
 ## Configuration
 
@@ -38,6 +39,7 @@ Set `DRIFTER_*` env vars to configure providers. The `libs.adapters.env` module 
 | Tika | `DRIFTER_TIKA_URL` | `_TIMEOUT_S` |
 | Ragas | `DRIFTER_RAGAS_MODEL` | `_METRICS` (comma-separated) |
 | OTel | `DRIFTER_OTEL_ENDPOINT` | `_PROTOCOL`, `_SERVICE_NAME`, `_EXPORT_INTERVAL_MS`, `_INSECURE` |
+| Langfuse | `DRIFTER_LANGFUSE_PUBLIC_KEY` | `_SECRET_KEY`, `_HOST` (default: `http://localhost:3000`) |
 
 ## Factory Functions
 

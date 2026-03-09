@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from libs.adapters.config import (
     GeminiConfig,
+    LangfuseConfig,
     OpenSearchConfig,
     OtelConfig,
     QdrantConfig,
@@ -149,10 +150,11 @@ def create_generator(config: VllmConfig | GeminiConfig | None = None) -> Generat
     raise TypeError(f"Unsupported generator config type: {type(config)}")
 
 
-def create_span_collector(config: OtelConfig | None = None) -> SpanCollector:
+def create_span_collector(config: OtelConfig | LangfuseConfig | None = None) -> SpanCollector:
     """Create a span collector instance.
 
     Returns :class:`NoOpCollector` when *config* is ``None``,
+    :class:`LangfuseSpanExporter` for a :class:`LangfuseConfig`,
     or :class:`OtelSpanExporter` for an :class:`OtelConfig`.
     """
     if config is None:
@@ -160,9 +162,17 @@ def create_span_collector(config: OtelConfig | None = None) -> SpanCollector:
 
         return NoOpCollector()
 
-    from libs.adapters.otel import OtelSpanExporter
+    if isinstance(config, LangfuseConfig):
+        from libs.adapters.langfuse import LangfuseSpanExporter
 
-    return OtelSpanExporter(config)
+        return LangfuseSpanExporter(config)
+
+    if isinstance(config, OtelConfig):
+        from libs.adapters.otel import OtelSpanExporter
+
+        return OtelSpanExporter(config)
+
+    raise TypeError(f"Unsupported span collector config type: {type(config)}")
 
 
 def create_pdf_parser(
