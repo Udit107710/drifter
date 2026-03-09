@@ -14,7 +14,7 @@ from orchestrators.query import QueryOrchestrator
 def register(subparsers: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]
     p = subparsers.add_parser("retrieve", help="Run retrieval only")
     p.add_argument("query", help="Query text")
-    p.add_argument("--top-k", type=int, default=50, help="Number of candidates")
+    p.add_argument("--top-k", type=int, default=10, help="Number of candidates")
     p.add_argument(
         "--mode",
         choices=["dense", "lexical", "hybrid"],

@@ -191,6 +191,42 @@ class OpenAIConfig:
 
 
 @dataclass(frozen=True)
+class OpenRouterConfig:
+    """Configuration for OpenRouter LLM gateway.
+
+    OpenRouter proxies hundreds of models via an OpenAI-compatible API,
+    including both LLM generation and embedding models.
+    """
+
+    api_key: str = ""
+    model_id: str = "openai/gpt-4o"
+    embedding_model: str = ""
+    base_url: str = "https://openrouter.ai/api"
+    app_name: str = "drifter"
+    timeout_s: float = 60.0
+    max_tokens: int = 1024
+    max_batch_size: int = 32
+    temperature: float = 0.1
+
+    def __post_init__(self) -> None:
+        if not self.api_key:
+            raise ValueError("api_key must not be empty")
+        if not self.model_id:
+            raise ValueError("model_id must not be empty")
+        if not self.base_url:
+            raise ValueError("base_url must not be empty")
+        if self.timeout_s <= 0:
+            raise ValueError("timeout_s must be > 0")
+        if self.max_tokens <= 0:
+            raise ValueError("max_tokens must be > 0")
+        if not (0 <= self.temperature <= 2):
+            raise ValueError("temperature must be between 0 and 2")
+
+    def __repr__(self) -> str:
+        return _masked_repr(self, ("api_key",))
+
+
+@dataclass(frozen=True)
 class GeminiConfig:
     """Configuration for Google Gemini LLM."""
 
@@ -211,6 +247,27 @@ class GeminiConfig:
             raise ValueError("max_tokens must be > 0")
         if not (0 <= self.temperature <= 2):
             raise ValueError("temperature must be between 0 and 2")
+
+    def __repr__(self) -> str:
+        return _masked_repr(self, ("api_key",))
+
+
+@dataclass(frozen=True)
+class HuggingFaceConfig:
+    """Configuration for HuggingFace Inference API reranking."""
+
+    api_key: str = ""
+    reranker_model: str = "BAAI/bge-reranker-v2-m3"
+    provider: str = "hf-inference"
+    timeout_s: float = 30.0
+
+    def __post_init__(self) -> None:
+        if not self.api_key:
+            raise ValueError("api_key must not be empty")
+        if not self.reranker_model:
+            raise ValueError("reranker_model must not be empty")
+        if self.timeout_s <= 0:
+            raise ValueError("timeout_s must be > 0")
 
     def __repr__(self) -> str:
         return _masked_repr(self, ("api_key",))

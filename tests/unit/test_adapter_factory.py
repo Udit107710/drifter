@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from libs.adapters.config import (
+    HuggingFaceConfig,
     OpenAIConfig,
+    OpenRouterConfig,
     OpenSearchConfig,
     OtelConfig,
     QdrantConfig,
@@ -21,6 +23,7 @@ from libs.adapters.factory import (
     create_vector_store,
 )
 from libs.adapters.openai import OpenAIGenerator
+from libs.adapters.openrouter import OpenRouterEmbeddingProvider, OpenRouterQueryEmbedder
 from libs.adapters.opensearch import OpenSearchLexicalStore, OpenSearchVectorStore
 from libs.adapters.otel import OtelSpanExporter
 from libs.adapters.qdrant import QdrantVectorStore
@@ -72,6 +75,11 @@ class TestCreateEmbeddingProvider:
         provider = create_embedding_provider(TeiConfig())
         assert isinstance(provider, TeiEmbeddingProvider)
 
+    def test_openrouter_config_returns_openrouter(self) -> None:
+        cfg = OpenRouterConfig(api_key="test", embedding_model="test/model")
+        provider = create_embedding_provider(cfg)
+        assert isinstance(provider, OpenRouterEmbeddingProvider)
+
 
 class TestCreateQueryEmbedder:
     def test_no_config_returns_mock(self) -> None:
@@ -81,6 +89,11 @@ class TestCreateQueryEmbedder:
     def test_tei_config_returns_tei(self) -> None:
         embedder = create_query_embedder(TeiConfig())
         assert isinstance(embedder, TeiQueryEmbedder)
+
+    def test_openrouter_config_returns_openrouter(self) -> None:
+        cfg = OpenRouterConfig(api_key="test", embedding_model="test/model")
+        embedder = create_query_embedder(cfg)
+        assert isinstance(embedder, OpenRouterQueryEmbedder)
 
 
 class TestCreateReranker:
@@ -99,6 +112,14 @@ class TestCreateReranker:
         reranker = create_reranker(config, model_name="my-model")
         assert isinstance(reranker, TeiCrossEncoderReranker)
 
+    def test_hf_config_returns_huggingface_reranker(self) -> None:
+        from libs.adapters.huggingface import HuggingFaceReranker
+
+        config = HuggingFaceConfig(api_key="test-key")
+        reranker = create_reranker(config, model_name="my-model")
+        assert isinstance(reranker, HuggingFaceReranker)
+        assert reranker.reranker_id == "hf-reranker:my-model"
+
 
 class TestCreateGenerator:
     def test_no_config_returns_mock(self) -> None:
@@ -108,6 +129,14 @@ class TestCreateGenerator:
     def test_openai_config_returns_openai(self) -> None:
         gen = create_generator(OpenAIConfig(api_key="test-key"))
         assert isinstance(gen, OpenAIGenerator)
+        assert gen.generator_id == "openai:gpt-4o"
+
+    def test_openrouter_config_returns_openai_generator(self) -> None:
+        gen = create_generator(
+            OpenRouterConfig(api_key="test-key", model_id="meta/llama-3-70b")
+        )
+        assert isinstance(gen, OpenAIGenerator)
+        assert gen.generator_id == "openrouter:meta/llama-3-70b"
 
     def test_vllm_config_returns_vllm(self) -> None:
         gen = create_generator(VllmConfig())

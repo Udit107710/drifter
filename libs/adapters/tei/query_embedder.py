@@ -64,7 +64,7 @@ class TeiQueryEmbedder:
         if self._client is None:
             raise RuntimeError("TeiQueryEmbedder is not connected. Call connect() first.")
 
-        resp = self._client.post("/embed", json={"inputs": text})
+        resp = self._client.post("/embed", json={"inputs": [text]})
         resp.raise_for_status()
         vectors: list[list[float]] = resp.json()
         return vectors[0]

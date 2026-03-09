@@ -11,8 +11,10 @@ from typing import Any
 
 from libs.adapters.env import (
     load_gemini_config,
+    load_huggingface_config,
     load_langfuse_config,
     load_openai_config,
+    load_openrouter_config,
     load_opensearch_config,
     load_otel_config,
     load_qdrant_config,
@@ -109,7 +111,9 @@ def create_registry(overrides: dict[str, Any] | None = None) -> ServiceRegistry:
     qdrant_config = load_qdrant_config()
     opensearch_config = load_opensearch_config()
     tei_config = load_tei_config()
+    hf_config = load_huggingface_config()
     vllm_config = load_vllm_config()
+    openrouter_config = load_openrouter_config()
     openai_config = load_openai_config()
     gemini_config = load_gemini_config()
     otel_config = load_otel_config()
@@ -137,8 +141,15 @@ def create_registry(overrides: dict[str, Any] | None = None) -> ServiceRegistry:
     if hasattr(lexical_store, "connect"):
         lexical_store.connect()
 
-    # --- Embeddings ---
-    query_embedder: Any = create_query_embedder(tei_config)
+    # --- Embeddings (prefer OpenRouter if embedding_model set, else TEI) ---
+    embedding_config: Any = None
+    if openrouter_config and openrouter_config.embedding_model:
+        embedding_config = openrouter_config
+    elif tei_config:
+        embedding_config = tei_config
+    query_embedder: Any = create_query_embedder(embedding_config)
+    if hasattr(query_embedder, "connect"):
+        query_embedder.connect()
 
     # --- Retrieval broker ---
     broker_config = BrokerConfig(
@@ -151,14 +162,26 @@ def create_registry(overrides: dict[str, Any] | None = None) -> ServiceRegistry:
         config=broker_config,
     )
 
-    # --- Reranking (TEI cross-encoder if available, else feature-based) ---
+    # --- Reranking (TEI > HuggingFace > FeatureBasedReranker) ---
+    reranker: Any = None
+
+    # Try TEI cross-encoder first
     tei_reranker = create_reranker(tei_config)
     if hasattr(tei_reranker, "connect"):
         tei_reranker.connect()
-    # Use TEI cross-encoder if it connected successfully, else fall back
     if hasattr(tei_reranker, "health_check") and tei_reranker.health_check():
         reranker = tei_reranker
-    else:
+
+    # Fall back to HuggingFace Inference API
+    if reranker is None and hf_config is not None:
+        hf_reranker = create_reranker(hf_config)
+        if hasattr(hf_reranker, "connect"):
+            hf_reranker.connect()
+        if hasattr(hf_reranker, "health_check") and hf_reranker.health_check():
+            reranker = hf_reranker
+
+    # Final fallback: feature-based
+    if reranker is None:
         reranker = FeatureBasedReranker()
     top_n = int(overrides.get("reranker_top_n", 0))
     reranker_service = RerankerService(reranker=reranker, top_n=top_n)
@@ -168,8 +191,10 @@ def create_registry(overrides: dict[str, Any] | None = None) -> ServiceRegistry:
     builder = GreedyContextBuilder(token_counter=counter)
     context_builder_service = ContextBuilderService(builder=builder)
 
-    # --- Generation (prefer OpenAI > Gemini > vLLM) ---
-    generator_config = openai_config or gemini_config or vllm_config
+    # --- Generation (prefer OpenRouter > OpenAI > Gemini > vLLM) ---
+    generator_config = (
+        openrouter_config or openai_config or gemini_config or vllm_config
+    )
     generator = create_generator(generator_config)
     if hasattr(generator, "connect"):
         generator.connect()
@@ -182,7 +207,9 @@ def create_registry(overrides: dict[str, Any] | None = None) -> ServiceRegistry:
     )
 
     # --- Indexing ---
-    embedding_provider = create_embedding_provider(tei_config)
+    embedding_provider = create_embedding_provider(embedding_config)
+    if hasattr(embedding_provider, "connect"):
+        embedding_provider.connect()
     chunk_repo = MemoryChunkRepository()
     embedding_repo = MemoryEmbeddingRepository()
     vector_writer = VectorStoreWriter(vector_store)

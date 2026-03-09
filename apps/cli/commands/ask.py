@@ -13,7 +13,7 @@ from orchestrators.query import QueryOrchestrator
 def register(subparsers: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]
     p = subparsers.add_parser("ask", help="Ask a question (full pipeline)")
     p.add_argument("query", help="Query text")
-    p.add_argument("--top-k", type=int, default=50, help="Retrieval candidates")
+    p.add_argument("--top-k", type=int, default=10, help="Retrieval candidates")
     p.add_argument("--token-budget", type=int, default=0, help="Token budget override")
     p.add_argument(
         "--mode",

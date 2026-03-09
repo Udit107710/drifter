@@ -20,7 +20,7 @@ class RetrievalQuery:
     raw_query: str
     normalized_query: str
     trace_id: TraceId
-    top_k: int = 50
+    top_k: int = 10
     filters: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
 

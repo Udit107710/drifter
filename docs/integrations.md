@@ -12,6 +12,9 @@ Drifter uses adapter stubs under `libs/adapters/` to isolate external provider d
 | TEI (embeddings) | `libs.adapters.tei.TeiEmbeddingProvider` | `EmbeddingProvider` |
 | TEI (query) | `libs.adapters.tei.TeiQueryEmbedder` | `QueryEmbedder` |
 | TEI (reranking) | `libs.adapters.tei.TeiCrossEncoderReranker` | `Reranker` |
+| OpenRouter (generation) | `libs.adapters.openai.OpenAIGenerator` (via factory) | `Generator` |
+| OpenRouter (embeddings) | `libs.adapters.openrouter.OpenRouterEmbeddingProvider` | `EmbeddingProvider` |
+| OpenRouter (query) | `libs.adapters.openrouter.OpenRouterQueryEmbedder` | `QueryEmbedder` |
 | OpenAI | `libs.adapters.openai.OpenAIGenerator` | `Generator` |
 | Google Gemini | `libs.adapters.gemini.GeminiGenerator` | `Generator` |
 | vLLM | `libs.adapters.vllm.VllmGenerator` | `Generator` |
@@ -33,6 +36,7 @@ Set `DRIFTER_*` env vars to configure providers. The `libs.adapters.env` module 
 |----------|----------------|-----------------|
 | Qdrant | `DRIFTER_QDRANT_HOST` | `_PORT`, `_GRPC_PORT`, `_API_KEY`, `_COLLECTION`, `_TIMEOUT_S`, `_USE_TLS` |
 | OpenSearch | `DRIFTER_OPENSEARCH_HOSTS` | `_USERNAME`, `_PASSWORD`, `_INDEX_PREFIX`, `_USE_SSL`, `_TIMEOUT_S` |
+| OpenRouter | `DRIFTER_OPENROUTER_API_KEY` | `_MODEL`, `_EMBEDDING_MODEL`, `_BASE_URL`, `_APP_NAME`, `_TIMEOUT_S`, `_MAX_TOKENS`, `_MAX_BATCH_SIZE`, `_TEMPERATURE` |
 | OpenAI | `DRIFTER_OPENAI_API_KEY` | `_MODEL` (default: gpt-4o), `_BASE_URL`, `_TIMEOUT_S`, `_MAX_TOKENS`, `_TEMPERATURE` |
 | TEI | `DRIFTER_TEI_URL` | `_RERANKER_URL`, `_MODEL_ID`, `_MODEL_VERSION`, `_RERANKER_MODEL_ID`, `_TIMEOUT_S`, `_MAX_BATCH_SIZE` |
 | Gemini | `DRIFTER_GEMINI_API_KEY` | `_MODEL` (default: gemini-2.5-flash), `_TIMEOUT_S`, `_MAX_TOKENS`, `_TEMPERATURE` |
@@ -76,6 +80,9 @@ The following adapters are fully implemented with real service backends:
 | `OpenSearchLexicalStore` | `opensearch-py` | BM25 full-text search |
 | `OtelSpanExporter` | `opentelemetry-sdk` | OTLP gRPC/HTTP export |
 | `LangfuseSpanExporter` | `langfuse` | Redis-backed span buffering |
+| `OpenAIGenerator` (OpenRouter) | `httpx` | OpenRouter LLM generation |
+| `OpenRouterEmbeddingProvider` | `httpx` | OpenRouter embeddings (batch) |
+| `OpenRouterQueryEmbedder` | `httpx` | OpenRouter query embeddings |
 | `OpenAIGenerator` | `httpx` | OpenAI Chat Completions API |
 | `GeminiGenerator` | `google-genai` | Gemini 2.5 Flash/Pro |
 | `TeiEmbeddingProvider` | `httpx` | TEI `/embed` + `/info` endpoints, batched |

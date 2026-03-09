@@ -140,6 +140,11 @@ class IngestionOrchestrator:
                 span, outcome=result.outcome.value,
                 input_count=len(chunks),
                 output_count=result.chunks_indexed_vector,
+                extra={
+                    "embedding_model": result.model_info.model_id,
+                    "embedding_dimensions": result.model_info.dimensions,
+                    "chunks_embedded": result.chunks_embedded,
+                },
             )
             return result
 

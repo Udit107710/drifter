@@ -11,8 +11,10 @@ from typing import TYPE_CHECKING
 
 from libs.adapters.config import (
     GeminiConfig,
+    HuggingFaceConfig,
     LangfuseConfig,
     OpenAIConfig,
+    OpenRouterConfig,
     OpenSearchConfig,
     OtelConfig,
     QdrantConfig,
@@ -70,27 +72,40 @@ def create_lexical_store(config: OpenSearchConfig | None = None) -> LexicalStore
     return OpenSearchLexicalStore(config)
 
 
-def create_embedding_provider(config: TeiConfig | None = None) -> object:
+def create_embedding_provider(
+    config: TeiConfig | OpenRouterConfig | None = None,
+) -> object:
     """Create an embedding provider instance.
 
     Returns :class:`DeterministicEmbeddingProvider` when *config* is
-    ``None``, or :class:`TeiEmbeddingProvider` for a :class:`TeiConfig`.
+    ``None``, :class:`OpenRouterEmbeddingProvider` for an
+    :class:`OpenRouterConfig` with ``embedding_model`` set, or
+    :class:`TeiEmbeddingProvider` for a :class:`TeiConfig`.
     """
     if config is None:
         from libs.embeddings.mock_provider import DeterministicEmbeddingProvider
 
         return DeterministicEmbeddingProvider()
 
+    if isinstance(config, OpenRouterConfig):
+        from libs.adapters.openrouter import OpenRouterEmbeddingProvider
+
+        return OpenRouterEmbeddingProvider(config)
+
     from libs.adapters.tei import TeiEmbeddingProvider
 
     return TeiEmbeddingProvider(config)
 
 
-def create_query_embedder(config: TeiConfig | None = None) -> object:
+def create_query_embedder(
+    config: TeiConfig | OpenRouterConfig | None = None,
+) -> object:
     """Create a query embedder instance.
 
-    Returns a simple lambda-based embedder when *config* is ``None``,
-    or :class:`TeiQueryEmbedder` for a :class:`TeiConfig`.
+    Returns a mock embedder when *config* is ``None``,
+    :class:`OpenRouterQueryEmbedder` for an :class:`OpenRouterConfig`
+    with ``embedding_model`` set, or :class:`TeiQueryEmbedder` for a
+    :class:`TeiConfig`.
     """
     if config is None:
         from libs.embeddings.mock_provider import DeterministicEmbeddingProvider
@@ -105,50 +120,82 @@ def create_query_embedder(config: TeiConfig | None = None) -> object:
 
         return _MockQueryEmbedder()
 
+    if isinstance(config, OpenRouterConfig):
+        from libs.adapters.openrouter import OpenRouterQueryEmbedder
+
+        return OpenRouterQueryEmbedder(config)
+
     from libs.adapters.tei import TeiQueryEmbedder
 
     return TeiQueryEmbedder(config)
 
 
-def create_reranker(config: TeiConfig | None = None, model_name: str = "cross-encoder") -> object:
+def create_reranker(
+    config: TeiConfig | HuggingFaceConfig | None = None,
+    model_name: str = "cross-encoder",
+) -> object:
     """Create a reranker instance.
 
-    Returns a :class:`CrossEncoderReranker` placeholder when *config* is
-    ``None`` or has no ``reranker_url``, or :class:`TeiCrossEncoderReranker`
-    for a :class:`TeiConfig` with a reranker URL.
+    Returns :class:`TeiCrossEncoderReranker` for a :class:`TeiConfig` with
+    a reranker URL, :class:`HuggingFaceReranker` for a
+    :class:`HuggingFaceConfig`, or :class:`CrossEncoderReranker` stub
+    otherwise.
     """
-    if config is None or not config.reranker_url:
-        from libs.reranking.cross_encoder_stub import CrossEncoderReranker
+    if isinstance(config, HuggingFaceConfig):
+        from libs.adapters.huggingface import HuggingFaceReranker
 
-        return CrossEncoderReranker(model_name)
+        return HuggingFaceReranker(config, model_name)
 
-    from libs.adapters.tei import TeiCrossEncoderReranker
+    if isinstance(config, TeiConfig) and config.reranker_url:
+        from libs.adapters.tei import TeiCrossEncoderReranker
 
-    # Create a config pointing at the reranker endpoint
-    reranker_config = TeiConfig(
-        base_url=config.reranker_url,
-        model_id=config.reranker_model_id or config.model_id,
-        model_version=config.model_version,
-        timeout_s=config.timeout_s,
-        max_batch_size=config.max_batch_size,
-    )
-    return TeiCrossEncoderReranker(reranker_config, model_name)
+        # Create a config pointing at the reranker endpoint
+        reranker_config = TeiConfig(
+            base_url=config.reranker_url,
+            model_id=config.reranker_model_id or config.model_id,
+            model_version=config.model_version,
+            timeout_s=config.timeout_s,
+            max_batch_size=config.max_batch_size,
+        )
+        return TeiCrossEncoderReranker(reranker_config, model_name)
+
+    from libs.reranking.cross_encoder_stub import CrossEncoderReranker
+
+    return CrossEncoderReranker(model_name)
 
 
 def create_generator(
-    config: VllmConfig | GeminiConfig | OpenAIConfig | None = None,
+    config: VllmConfig | GeminiConfig | OpenAIConfig | OpenRouterConfig | None = None,
 ) -> Generator:
     """Create a generator instance.
 
     Returns :class:`MockGenerator` when *config* is ``None``,
-    :class:`OpenAIGenerator` for an :class:`OpenAIConfig`,
-    :class:`GeminiGenerator` for a :class:`GeminiConfig`, or
-    :class:`VllmGenerator` for a :class:`VllmConfig`.
+    :class:`OpenAIGenerator` for an :class:`OpenAIConfig` or
+    :class:`OpenRouterConfig`, :class:`GeminiGenerator` for a
+    :class:`GeminiConfig`, or :class:`VllmGenerator` for a
+    :class:`VllmConfig`.
     """
     if config is None:
         from libs.generation.mock_generator import MockGenerator
 
         return MockGenerator()
+
+    if isinstance(config, OpenRouterConfig):
+        from libs.adapters.openai import OpenAIGenerator
+
+        openai_cfg = OpenAIConfig(
+            api_key=config.api_key,
+            model_id=config.model_id,
+            base_url=config.base_url,
+            timeout_s=config.timeout_s,
+            max_tokens=config.max_tokens,
+            temperature=config.temperature,
+        )
+        return OpenAIGenerator(
+            openai_cfg,
+            generator_prefix="openrouter",
+            extra_headers={"X-Title": config.app_name},
+        )
 
     if isinstance(config, OpenAIConfig):
         from libs.adapters.openai import OpenAIGenerator

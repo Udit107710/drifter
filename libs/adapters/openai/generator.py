@@ -19,11 +19,22 @@ logger = logging.getLogger(__name__)
 
 
 class OpenAIGenerator:
-    """OpenAI-backed generator implementing the ``Generator`` protocol."""
+    """OpenAI-backed generator implementing the ``Generator`` protocol.
 
-    def __init__(self, config: OpenAIConfig) -> None:
+    Works with any OpenAI-compatible API (OpenAI, OpenRouter, Azure, etc.)
+    by setting ``base_url`` and optional ``extra_headers``.
+    """
+
+    def __init__(
+        self,
+        config: OpenAIConfig,
+        *,
+        generator_prefix: str = "openai",
+        extra_headers: dict[str, str] | None = None,
+    ) -> None:
         self._config = config
-        self._generator_id = f"openai:{config.model_id}"
+        self._generator_id = f"{generator_prefix}:{config.model_id}"
+        self._extra_headers = extra_headers or {}
         self._client: httpx.Client | None = None
 
     @property
@@ -32,13 +43,15 @@ class OpenAIGenerator:
 
     def connect(self) -> None:
         """Create the HTTP client for OpenAI API."""
+        headers = {
+            "Authorization": f"Bearer {self._config.api_key}",
+            "Content-Type": "application/json",
+            **self._extra_headers,
+        }
         self._client = httpx.Client(
             base_url=self._config.base_url,
             timeout=self._config.timeout_s,
-            headers={
-                "Authorization": f"Bearer {self._config.api_key}",
-                "Content-Type": "application/json",
-            },
+            headers=headers,
         )
         logger.info(
             "OpenAI client configured for model: %s (base_url=%s)",

@@ -13,7 +13,7 @@ from orchestrators.query import QueryOrchestrator
 def register(subparsers: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]
     p = subparsers.add_parser("rerank", help="Retrieve + rerank")
     p.add_argument("query", help="Query text")
-    p.add_argument("--top-k", type=int, default=50, help="Retrieval candidates")
+    p.add_argument("--top-k", type=int, default=10, help="Retrieval candidates")
     p.add_argument("--top-n", type=int, default=0, help="Reranker top-n cutoff")
     p.set_defaults(handler=handle)
 

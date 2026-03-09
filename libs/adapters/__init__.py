@@ -5,6 +5,7 @@ Concrete implementations of subsystem protocols for external services:
 - **Qdrant** — ``VectorStore`` (dense retrieval)
 - **OpenSearch** — ``VectorStore`` (k-NN) and ``LexicalStore`` (BM25)
 - **TEI** — ``EmbeddingProvider``, ``QueryEmbedder``, ``Reranker``
+- **HuggingFace** — ``Reranker`` (Inference API)
 - **OpenAI** — ``Generator``
 - **vLLM** — ``Generator``
 - **Unstructured / Tika** — ``PdfParserBase``

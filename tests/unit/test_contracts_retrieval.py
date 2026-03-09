@@ -55,7 +55,7 @@ class TestRetrievalQuery:
             normalized_query="what is rag",
             trace_id="trace-001",
         )
-        assert q.top_k == 50
+        assert q.top_k == 10
         assert q.filters == {}
 
     def test_custom_top_k(self) -> None:

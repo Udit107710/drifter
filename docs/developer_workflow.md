@@ -125,6 +125,7 @@ All external services are configured via `DRIFTER_*` env vars. When not set, in-
 | `DRIFTER_OPENSEARCH_HOSTS` | OpenSearch lexical/vector store |
 | `DRIFTER_TEI_URL` | Text Embeddings Inference (embeddings) |
 | `DRIFTER_TEI_RERANKER_URL` | TEI cross-encoder reranking |
+| `DRIFTER_OPENROUTER_API_KEY` | OpenRouter LLM gateway |
 | `DRIFTER_OPENAI_API_KEY` | OpenAI LLM generation |
 | `DRIFTER_GEMINI_API_KEY` | Google Gemini LLM generation |
 | `DRIFTER_VLLM_URL` | vLLM generation |
@@ -132,7 +133,7 @@ All external services are configured via `DRIFTER_*` env vars. When not set, in-
 | `DRIFTER_LANGFUSE_PUBLIC_KEY` | Langfuse observability |
 | `DRIFTER_LANGFUSE_REDIS_URL` | Redis buffer for Langfuse span export |
 
-When multiple LLM providers are configured, priority is: OpenAI > Gemini > vLLM.
+When multiple LLM providers are configured, priority is: OpenRouter > OpenAI > Gemini > vLLM.
 When both `DRIFTER_LANGFUSE_PUBLIC_KEY` and `DRIFTER_OTEL_ENDPOINT` are set, Langfuse is preferred.
 
 ### CLI Overrides

@@ -6,8 +6,10 @@ import os
 
 from libs.adapters.config import (
     GeminiConfig,
+    HuggingFaceConfig,
     LangfuseConfig,
     OpenAIConfig,
+    OpenRouterConfig,
     OpenSearchConfig,
     OtelConfig,
     QdrantConfig,
@@ -162,6 +164,41 @@ def load_ragas_config() -> RagasConfig | None:
     return RagasConfig(**kwargs)  # type: ignore[arg-type]
 
 
+def load_openrouter_config() -> OpenRouterConfig | None:
+    """Load OpenRouter config from DRIFTER_OPENROUTER_* env vars.
+
+    Returns None if DRIFTER_OPENROUTER_API_KEY is not set.
+    """
+    api_key = os.environ.get("DRIFTER_OPENROUTER_API_KEY")
+    if api_key is None:
+        return None
+    return OpenRouterConfig(
+        api_key=api_key,
+        model_id=os.environ.get(
+            "DRIFTER_OPENROUTER_MODEL", "openai/gpt-4o"
+        ),
+        embedding_model=os.environ.get(
+            "DRIFTER_OPENROUTER_EMBEDDING_MODEL", ""
+        ),
+        base_url=os.environ.get(
+            "DRIFTER_OPENROUTER_BASE_URL", "https://openrouter.ai/api"
+        ),
+        app_name=os.environ.get("DRIFTER_OPENROUTER_APP_NAME", "drifter"),
+        timeout_s=float(
+            os.environ.get("DRIFTER_OPENROUTER_TIMEOUT_S", "60.0")
+        ),
+        max_tokens=int(
+            os.environ.get("DRIFTER_OPENROUTER_MAX_TOKENS", "1024")
+        ),
+        max_batch_size=int(
+            os.environ.get("DRIFTER_OPENROUTER_MAX_BATCH_SIZE", "32")
+        ),
+        temperature=float(
+            os.environ.get("DRIFTER_OPENROUTER_TEMPERATURE", "0.1")
+        ),
+    )
+
+
 def load_openai_config() -> OpenAIConfig | None:
     """Load OpenAI config from DRIFTER_OPENAI_* env vars.
 
@@ -225,6 +262,24 @@ def load_langfuse_config() -> LangfuseConfig | None:
     if buffer_ttl_raw is not None:
         kwargs["buffer_ttl_s"] = int(buffer_ttl_raw)
     return LangfuseConfig(**kwargs)  # type: ignore[arg-type]
+
+
+def load_huggingface_config() -> HuggingFaceConfig | None:
+    """Load HuggingFace config from DRIFTER_HF_* env vars.
+
+    Returns None if DRIFTER_HF_TOKEN is not set.
+    """
+    api_key = os.environ.get("DRIFTER_HF_TOKEN")
+    if api_key is None:
+        return None
+    return HuggingFaceConfig(
+        api_key=api_key,
+        reranker_model=os.environ.get(
+            "DRIFTER_HF_RERANKER_MODEL", "BAAI/bge-reranker-v2-m3"
+        ),
+        provider=os.environ.get("DRIFTER_HF_PROVIDER", "hf-inference"),
+        timeout_s=float(os.environ.get("DRIFTER_HF_TIMEOUT_S", "30.0")),
+    )
 
 
 def load_otel_config() -> OtelConfig | None:

@@ -9,7 +9,9 @@ from __future__ import annotations
 import pytest
 
 from libs.adapters.config import (
+    HuggingFaceConfig,
     OpenAIConfig,
+    OpenRouterConfig,
     OpenSearchConfig,
     OtelConfig,
     QdrantConfig,
@@ -19,7 +21,9 @@ from libs.adapters.config import (
     UnstructuredConfig,
     VllmConfig,
 )
+from libs.adapters.huggingface import HuggingFaceReranker
 from libs.adapters.openai import OpenAIGenerator
+from libs.adapters.openrouter import OpenRouterEmbeddingProvider, OpenRouterQueryEmbedder
 from libs.adapters.opensearch import OpenSearchLexicalStore, OpenSearchVectorStore
 from libs.adapters.otel import OtelSpanExporter
 from libs.adapters.qdrant import QdrantVectorStore
@@ -107,6 +111,31 @@ class TestStubLifecycle:
         assert g.health_check() is True
         g.close()
         assert g.health_check() is False
+
+    def test_openrouter_embedding_lifecycle(self) -> None:
+        cfg = OpenRouterConfig(api_key="test-key", embedding_model="test/model")
+        p = OpenRouterEmbeddingProvider(cfg)
+        p.connect()
+        assert p.health_check() is True
+        p.close()
+        assert p.health_check() is False
+
+    def test_openrouter_query_embedder_lifecycle(self) -> None:
+        cfg = OpenRouterConfig(api_key="test-key", embedding_model="test/model")
+        e = OpenRouterQueryEmbedder(cfg)
+        e.connect()
+        assert e.health_check() is True
+        e.close()
+        assert e.health_check() is False
+
+    def test_huggingface_reranker_lifecycle(self) -> None:
+        cfg = HuggingFaceConfig(api_key="test-key")
+        r = HuggingFaceReranker(cfg, "cross-encoder")
+        assert r.health_check() is False
+        r.connect()
+        assert r.health_check() is True
+        r.close()
+        assert r.health_check() is False
 
     def test_ragas_lifecycle(self) -> None:
         e = RagasAnswerEvaluator(RagasConfig())
@@ -209,6 +238,17 @@ class TestIdentifiers:
         store = OpenSearchLexicalStore(OpenSearchConfig(index_prefix="test"))
         assert store.store_id == "opensearch-lexical:test"
 
+    def test_hf_reranker_id(self) -> None:
+        cfg = HuggingFaceConfig(api_key="test-key")
+        r = HuggingFaceReranker(cfg, "cross-encoder")
+        assert r.reranker_id == "hf-reranker:cross-encoder"
+
+    def test_hf_rerank_without_connect_raises(self) -> None:
+        cfg = HuggingFaceConfig(api_key="test-key")
+        r = HuggingFaceReranker(cfg, "cross-encoder")
+        with pytest.raises(RuntimeError, match="not connected"):
+            r.rerank([], None)  # type: ignore[arg-type]
+
     def test_tei_reranker_id(self) -> None:
         r = TeiCrossEncoderReranker(TeiConfig(), "my-model")
         assert r.reranker_id == "tei-cross-encoder:my-model"
@@ -221,6 +261,18 @@ class TestIdentifiers:
         g = OpenAIGenerator(OpenAIConfig(api_key="test-key"))
         with pytest.raises(RuntimeError, match="not connected"):
             g.generate(None)  # type: ignore[arg-type]
+
+    def test_openrouter_embed_without_connect_raises(self) -> None:
+        cfg = OpenRouterConfig(api_key="test-key", embedding_model="test/model")
+        p = OpenRouterEmbeddingProvider(cfg)
+        with pytest.raises(RuntimeError, match="not connected"):
+            p.embed_chunks([])
+
+    def test_openrouter_query_embed_without_connect_raises(self) -> None:
+        cfg = OpenRouterConfig(api_key="test-key", embedding_model="test/model")
+        e = OpenRouterQueryEmbedder(cfg)
+        with pytest.raises(RuntimeError, match="not connected"):
+            e.embed_query("test")
 
     def test_vllm_generator_id(self) -> None:
         g = VllmGenerator(VllmConfig(model_id="llama-2"))

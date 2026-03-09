@@ -7,6 +7,7 @@ from unittest.mock import patch
 import pytest
 
 from libs.adapters.config import (
+    HuggingFaceConfig,
     OpenSearchConfig,
     OtelConfig,
     QdrantConfig,
@@ -17,6 +18,7 @@ from libs.adapters.config import (
     VllmConfig,
 )
 from libs.adapters.env import (
+    load_huggingface_config,
     load_opensearch_config,
     load_otel_config,
     load_qdrant_config,
@@ -157,6 +159,32 @@ class TestRagasConfig:
             RagasConfig(metrics=[])
 
 
+class TestHuggingFaceConfig:
+    def test_defaults(self) -> None:
+        cfg = HuggingFaceConfig(api_key="test-key")
+        assert cfg.reranker_model == "BAAI/bge-reranker-v2-m3"
+        assert cfg.provider == "hf-inference"
+        assert cfg.timeout_s == 30.0
+
+    def test_empty_api_key_raises(self) -> None:
+        with pytest.raises(ValueError, match="api_key must not be empty"):
+            HuggingFaceConfig()
+
+    def test_empty_reranker_model_raises(self) -> None:
+        with pytest.raises(ValueError, match="reranker_model must not be empty"):
+            HuggingFaceConfig(api_key="key", reranker_model="")
+
+    def test_bad_timeout_raises(self) -> None:
+        with pytest.raises(ValueError, match="timeout_s must be > 0"):
+            HuggingFaceConfig(api_key="key", timeout_s=0)
+
+    def test_api_key_masked_in_repr(self) -> None:
+        cfg = HuggingFaceConfig(api_key="super-secret")
+        r = repr(cfg)
+        assert "super-secret" not in r
+        assert "***" in r
+
+
 class TestOtelConfig:
     def test_defaults(self) -> None:
         cfg = OtelConfig()
@@ -254,6 +282,25 @@ class TestEnvLoaders:
             assert cfg is not None
             assert cfg.model_id == "gpt-4"
             assert cfg.metrics == ["faithfulness", "relevancy"]
+
+    def test_huggingface_returns_none_when_unset(self) -> None:
+        with patch.dict("os.environ", {}, clear=True):
+            assert load_huggingface_config() is None
+
+    def test_huggingface_from_env(self) -> None:
+        env = {
+            "DRIFTER_HF_TOKEN": "hf-test-key",
+            "DRIFTER_HF_RERANKER_MODEL": "custom/model",
+            "DRIFTER_HF_PROVIDER": "custom-provider",
+            "DRIFTER_HF_TIMEOUT_S": "15.0",
+        }
+        with patch.dict("os.environ", env, clear=True):
+            cfg = load_huggingface_config()
+            assert cfg is not None
+            assert cfg.api_key == "hf-test-key"
+            assert cfg.reranker_model == "custom/model"
+            assert cfg.provider == "custom-provider"
+            assert cfg.timeout_s == 15.0
 
     def test_otel_returns_none_when_unset(self) -> None:
         with patch.dict("os.environ", {}, clear=True):
