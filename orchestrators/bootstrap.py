@@ -57,8 +57,15 @@ from libs.parsing.parsers.plain_text import PlainTextParser
 from libs.reranking.feature_reranker import FeatureBasedReranker
 from libs.reranking.service import RerankerService
 from libs.resilience import RetryConfig
+from libs.retrieval.broker.async_service import AsyncRetrievalBroker
 from libs.retrieval.broker.models import BrokerConfig
 from libs.retrieval.broker.service import RetrievalBroker
+from libs.retrieval.stores.async_memory_lexical_store import (
+    AsyncMemoryLexicalStore,
+)
+from libs.retrieval.stores.async_memory_vector_store import (
+    AsyncMemoryVectorStore,
+)
 from orchestrators.ingestion import IngestionOrchestrator
 
 _logger = logging.getLogger(__name__)
@@ -78,6 +85,7 @@ class ServiceRegistry:
 
     tracer: Tracer
     retrieval_broker: RetrievalBroker
+    async_retrieval_broker: AsyncRetrievalBroker | None
     reranker_service: RerankerService
     context_builder_service: ContextBuilderService
     generation_service: GenerationService
@@ -177,6 +185,27 @@ def create_registry(overrides: dict[str, Any] | None = None) -> ServiceRegistry:
         vector_store=vector_store,
         lexical_store=lexical_store,
         query_embedder=query_embedder,
+        config=broker_config,
+        retry_config=retry_config,
+    )
+
+    # --- Async retrieval broker (wraps same stores) ---
+    async_vector = AsyncMemoryVectorStore(vector_store)
+    async_lexical = AsyncMemoryLexicalStore(lexical_store)
+
+    class _SyncToAsyncEmbedder:
+        """Wraps a sync QueryEmbedder as AsyncQueryEmbedder."""
+
+        def __init__(self, inner: object) -> None:
+            self._inner = inner
+
+        async def async_embed_query(self, text: str) -> list[float]:
+            return self._inner.embed_query(text)  # type: ignore[union-attr]
+
+    async_retrieval_broker = AsyncRetrievalBroker(
+        vector_store=async_vector,
+        lexical_store=async_lexical,
+        query_embedder=_SyncToAsyncEmbedder(query_embedder),
         config=broker_config,
         retry_config=retry_config,
     )
@@ -284,6 +313,7 @@ def create_registry(overrides: dict[str, Any] | None = None) -> ServiceRegistry:
     return ServiceRegistry(
         tracer=tracer,
         retrieval_broker=retrieval_broker,
+        async_retrieval_broker=async_retrieval_broker,
         reranker_service=reranker_service,
         context_builder_service=context_builder_service,
         generation_service=generation_service,
