@@ -28,7 +28,7 @@ import contextlib
 import json
 import logging
 import threading
-from datetime import UTC
+from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from libs.adapters.config import LangfuseConfig
@@ -241,7 +241,7 @@ class LangfuseSpanExporter:
         if self._client is not None:
             # Flush any remaining buffered spans
             for span in self._buffer.drain():
-                self._export_span(span)
+                self._export_child(span)
             try:
                 self._client.flush()
             except Exception:
@@ -267,9 +267,7 @@ class LangfuseSpanExporter:
             if span.parent_span_id is None:
                 # Root span arrived — flush root first, then buffered children.
                 children = self._buffer.pop_all(span.trace_id)
-                self._export_root(span)
-                for child in children:
-                    self._export_span(child)
+                self._export_trace(span, children)
                 self._client.flush()
             else:
                 # Child span — buffer it.
@@ -279,24 +277,38 @@ class LangfuseSpanExporter:
 
     # -- Internal ------------------------------------------------------------
 
-    def _export_root(self, span: Span) -> None:
-        """Export the root span and set the trace name."""
-        trace_ctx: dict[str, str] = {"trace_id": span.trace_id}
-        level = "ERROR" if span.status == SpanStatus.ERROR else "DEFAULT"
-        metadata = _build_metadata(span)
+    def _export_trace(
+        self, root: Span, children: list[Span],
+    ) -> None:
+        """Export root span + children, preserving trace name and timestamps.
+
+        Uses ``propagate_attributes(trace_name=...)`` inside the root's
+        ``start_as_current_span`` context to ensure child observations
+        inherit (and do not overwrite) the trace name.
+        """
+        from langfuse import propagate_attributes
+
+        trace_ctx: dict[str, str] = {"trace_id": root.trace_id}
+        level = "ERROR" if root.status == SpanStatus.ERROR else "DEFAULT"
+        metadata = _build_metadata(root)
+        _add_wall_times(metadata, root)
 
         lf_span = self._client.start_as_current_span(
             trace_context=trace_ctx,
-            name=span.name,
-            input=_build_input(span),
+            name=root.name,
+            input=_build_input(root),
             metadata=metadata,
             level=level,
-            status_message=span.error_message,
+            status_message=root.error_message,
         )
-        with lf_span as s:
-            s.update(output=_build_output(span))
+        with lf_span as s, propagate_attributes(trace_name=root.name):
+            s.update(output=_build_output(root))
 
-    def _export_span(self, span: Span) -> None:
+            # Export children inside propagated context
+            for child in children:
+                self._export_child(child)
+
+    def _export_child(self, span: Span) -> None:
         """Export a child span or generation."""
         stage = span.attributes.get("pipeline.stage", "")
         trace_ctx: dict[str, str] = {"trace_id": span.trace_id}
@@ -315,6 +327,7 @@ class LangfuseSpanExporter:
     ) -> None:
         """Create a Langfuse span observation."""
         metadata = _build_metadata(span)
+        _add_wall_times(metadata, span)
         lf_span = self._client.start_span(
             trace_context=trace_ctx,
             name=span.name,
@@ -324,7 +337,7 @@ class LangfuseSpanExporter:
             status_message=span.error_message,
         )
         lf_span.update(output=_build_output(span))
-        lf_span.end()
+        lf_span.end(end_time=_wall_to_ns(span.end_wall))
 
     def _create_generation(
         self, span: Span, trace_ctx: dict[str, str], level: str,
@@ -332,6 +345,7 @@ class LangfuseSpanExporter:
         """Create a Langfuse generation observation for LLM calls."""
         attrs = span.attributes
         metadata = _build_metadata(span)
+        _add_wall_times(metadata, span)
 
         # Use model_id directly (not generator_id which has a prefix)
         model = attrs.get("model_id") or attrs.get("generator_id", "unknown")
@@ -360,10 +374,35 @@ class LangfuseSpanExporter:
             output=_build_output(span),
             usage_details=usage_details,
         )
-        lf_gen.end()
+        lf_gen.end(end_time=_wall_to_ns(span.end_wall))
 
 
 # -- Helpers -----------------------------------------------------------------
+
+
+def _wall_to_ns(wall: datetime | None) -> int | None:
+    """Convert a wall-clock datetime to nanoseconds since epoch.
+
+    The Langfuse SDK v3 ``end()`` method accepts ``end_time`` in nanoseconds.
+    Returns ``None`` if the datetime is not available.
+    """
+    if wall is None:
+        return None
+    return int(wall.timestamp() * 1_000_000_000)
+
+
+def _add_wall_times(metadata: dict[str, Any], span: Span) -> None:
+    """Add wall-clock start/end times to metadata for visibility.
+
+    The Langfuse SDK v3 does not expose a public ``start_time`` parameter on
+    ``start_span()`` or ``start_observation()``, so the span start time is
+    always set to the API call time.  We record the real wall-clock times in
+    metadata so they are visible in the Langfuse UI.
+    """
+    metadata["start_wall"] = span.start_wall.isoformat()
+    if span.end_wall:
+        metadata["end_wall"] = span.end_wall.isoformat()
+    metadata["duration_ms"] = round(span.duration_ms, 2)
 
 
 def _build_metadata(span: Span) -> dict[str, Any]:

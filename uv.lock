@@ -442,6 +442,7 @@ dependencies = [
     { name = "openai" },
     { name = "python-dotenv" },
     { name = "redis" },
+    { name = "tiktoken" },
 ]
 
 [package.optional-dependencies]
@@ -488,6 +489,7 @@ requires-dist = [
     { name = "qdrant-client", marker = "extra == 'adapters'", specifier = ">=1.9" },
     { name = "redis", specifier = ">=5.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4" },
+    { name = "tiktoken", specifier = ">=0.12.0" },
     { name = "tiktoken", marker = "extra == 'tokenizers'", specifier = ">=0.7" },
 ]
 provides-extras = ["dev", "adapters", "tokenizers", "observability"]
