@@ -204,13 +204,24 @@ class LangfuseSpanExporter:
         self._client: Any = None
 
         # Choose buffer backend based on config.
-        if config.redis_url:
-            self._buffer: SpanBuffer = RedisSpanBuffer(
-                config.redis_url, ttl_s=config.buffer_ttl_s,
-            )
+        # Fall back to in-memory if Redis is configured but unreachable.
+        self._buffer: SpanBuffer = self._create_buffer(config)
+
+    @staticmethod
+    def _create_buffer(config: LangfuseConfig) -> SpanBuffer:
+        if not config.redis_url:
+            return InMemorySpanBuffer()
+        try:
+            buf = RedisSpanBuffer(config.redis_url, ttl_s=config.buffer_ttl_s)
+            buf._client.ping()
             logger.info("Langfuse exporter using Redis buffer — %s", config.redis_url)
-        else:
-            self._buffer = InMemorySpanBuffer()
+            return buf
+        except Exception:
+            logger.warning(
+                "Redis unavailable at %s — falling back to in-memory span buffer",
+                config.redis_url,
+            )
+            return InMemorySpanBuffer()
 
     # -- Lifecycle -----------------------------------------------------------
 
