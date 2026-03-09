@@ -186,11 +186,18 @@ def load_langfuse_config() -> LangfuseConfig | None:
     public_key = os.environ.get("DRIFTER_LANGFUSE_PUBLIC_KEY")
     if public_key is None:
         return None
-    return LangfuseConfig(
-        public_key=public_key,
-        secret_key=os.environ.get("DRIFTER_LANGFUSE_SECRET_KEY", ""),
-        host=os.environ.get("DRIFTER_LANGFUSE_HOST", "http://localhost:3000"),
-    )
+    redis_url = os.environ.get("DRIFTER_LANGFUSE_REDIS_URL")
+    buffer_ttl_raw = os.environ.get("DRIFTER_LANGFUSE_BUFFER_TTL_S")
+    kwargs: dict[str, object] = {
+        "public_key": public_key,
+        "secret_key": os.environ.get("DRIFTER_LANGFUSE_SECRET_KEY", ""),
+        "host": os.environ.get("DRIFTER_LANGFUSE_HOST", "http://localhost:3000"),
+    }
+    if redis_url is not None:
+        kwargs["redis_url"] = redis_url
+    if buffer_ttl_raw is not None:
+        kwargs["buffer_ttl_s"] = int(buffer_ttl_raw)
+    return LangfuseConfig(**kwargs)  # type: ignore[arg-type]
 
 
 def load_otel_config() -> OtelConfig | None:

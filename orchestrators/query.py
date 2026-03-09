@@ -70,6 +70,25 @@ class QueryOrchestrator:
         start = time.monotonic()
         ctx = self._tracer.create_context(trace_id=trace_id)
         budget = token_budget or self._token_budget
+
+        with pipeline_span(self._tracer, ctx, "rag-pipeline") as root:
+            root.set_attribute("query", query)
+            result = self._run_full_pipeline(ctx, query, top_k, budget, start)
+            record_stage_result(
+                root, outcome=result.outcome,
+                input_count=1, output_count=1 if result.outcome == "success" else 0,
+            )
+            return result
+
+    def _run_full_pipeline(
+        self,
+        ctx: ObservabilityContext,
+        query: str,
+        top_k: int,
+        budget: int,
+        start: float,
+    ) -> QueryResult:
+        """Inner pipeline logic, called within the root span."""
         errors: list[str] = []
 
         retrieval_query = RetrievalQuery(
@@ -153,19 +172,25 @@ class QueryOrchestrator:
         """Run retrieval stage only."""
         start = time.monotonic()
         ctx = self._tracer.create_context(trace_id=trace_id)
-        rq = RetrievalQuery(
-            raw_query=query, normalized_query=query,
-            trace_id=ctx.trace_id, top_k=top_k,
-        )
-        broker_result = self._run_retrieval(ctx, rq)
-        if broker_result.outcome == BrokerOutcome.SUCCESS:
-            outcome = "success"
-        else:
-            outcome = broker_result.outcome.value
-        return QueryResult(
-            trace_id=ctx.trace_id, query=query, broker_result=broker_result,
-            total_latency_ms=_elapsed_ms(start), outcome=outcome,
-        )
+        with pipeline_span(self._tracer, ctx, "rag-pipeline") as root:
+            root.set_attribute("query", query)
+            rq = RetrievalQuery(
+                raw_query=query, normalized_query=query,
+                trace_id=ctx.trace_id, top_k=top_k,
+            )
+            broker_result = self._run_retrieval(ctx, rq)
+            if broker_result.outcome == BrokerOutcome.SUCCESS:
+                outcome = "success"
+            else:
+                outcome = broker_result.outcome.value
+            record_stage_result(
+                root, outcome=outcome,
+                input_count=1, output_count=broker_result.candidate_count,
+            )
+            return QueryResult(
+                trace_id=ctx.trace_id, query=query, broker_result=broker_result,
+                total_latency_ms=_elapsed_ms(start), outcome=outcome,
+            )
 
     def run_through_rerank(
         self,
@@ -176,23 +201,27 @@ class QueryOrchestrator:
         """Run retrieval + reranking."""
         start = time.monotonic()
         ctx = self._tracer.create_context(trace_id=trace_id)
-        rq = RetrievalQuery(
-            raw_query=query, normalized_query=query,
-            trace_id=ctx.trace_id, top_k=top_k,
-        )
-        broker_result = self._run_retrieval(ctx, rq)
-        if broker_result.outcome in (BrokerOutcome.FAILED, BrokerOutcome.NO_RESULTS):
+        with pipeline_span(self._tracer, ctx, "rag-pipeline") as root:
+            root.set_attribute("query", query)
+            rq = RetrievalQuery(
+                raw_query=query, normalized_query=query,
+                trace_id=ctx.trace_id, top_k=top_k,
+            )
+            broker_result = self._run_retrieval(ctx, rq)
+            if broker_result.outcome in (BrokerOutcome.FAILED, BrokerOutcome.NO_RESULTS):
+                record_stage_result(root, outcome=broker_result.outcome.value, input_count=1, output_count=0)
+                return QueryResult(
+                    trace_id=ctx.trace_id, query=query, broker_result=broker_result,
+                    total_latency_ms=_elapsed_ms(start), outcome=broker_result.outcome.value,
+                )
+            candidates = fused_list_to_retrieval_candidates(broker_result.candidates)
+            reranker_result = self._run_reranking(ctx, candidates, rq)
+            record_stage_result(root, outcome="success", input_count=1, output_count=reranker_result.candidate_count)
             return QueryResult(
                 trace_id=ctx.trace_id, query=query, broker_result=broker_result,
-                total_latency_ms=_elapsed_ms(start), outcome=broker_result.outcome.value,
+                reranker_result=reranker_result, total_latency_ms=_elapsed_ms(start),
+                outcome="success",
             )
-        candidates = fused_list_to_retrieval_candidates(broker_result.candidates)
-        reranker_result = self._run_reranking(ctx, candidates, rq)
-        return QueryResult(
-            trace_id=ctx.trace_id, query=query, broker_result=broker_result,
-            reranker_result=reranker_result, total_latency_ms=_elapsed_ms(start),
-            outcome="success",
-        )
 
     def run_through_context(
         self,
@@ -205,26 +234,33 @@ class QueryOrchestrator:
         start = time.monotonic()
         ctx = self._tracer.create_context(trace_id=trace_id)
         budget = token_budget or self._token_budget
-        rq = RetrievalQuery(
-            raw_query=query, normalized_query=query,
-            trace_id=ctx.trace_id, top_k=top_k,
-        )
-        broker_result = self._run_retrieval(ctx, rq)
-        if broker_result.outcome in (BrokerOutcome.FAILED, BrokerOutcome.NO_RESULTS):
+        with pipeline_span(self._tracer, ctx, "rag-pipeline") as root:
+            root.set_attribute("query", query)
+            rq = RetrievalQuery(
+                raw_query=query, normalized_query=query,
+                trace_id=ctx.trace_id, top_k=top_k,
+            )
+            broker_result = self._run_retrieval(ctx, rq)
+            if broker_result.outcome in (BrokerOutcome.FAILED, BrokerOutcome.NO_RESULTS):
+                record_stage_result(root, outcome=broker_result.outcome.value, input_count=1, output_count=0)
+                return QueryResult(
+                    trace_id=ctx.trace_id, query=query, broker_result=broker_result,
+                    total_latency_ms=_elapsed_ms(start), outcome=broker_result.outcome.value,
+                )
+            candidates = fused_list_to_retrieval_candidates(broker_result.candidates)
+            reranker_result = self._run_reranking(ctx, candidates, rq)
+            builder_result = self._run_context_build(
+                ctx, reranker_result.ranked_candidates, query, budget,
+            )
+            record_stage_result(
+                root, outcome="success", input_count=1,
+                output_count=len(builder_result.context_pack.evidence),
+            )
             return QueryResult(
                 trace_id=ctx.trace_id, query=query, broker_result=broker_result,
-                total_latency_ms=_elapsed_ms(start), outcome=broker_result.outcome.value,
+                reranker_result=reranker_result, builder_result=builder_result,
+                total_latency_ms=_elapsed_ms(start), outcome="success",
             )
-        candidates = fused_list_to_retrieval_candidates(broker_result.candidates)
-        reranker_result = self._run_reranking(ctx, candidates, rq)
-        builder_result = self._run_context_build(
-            ctx, reranker_result.ranked_candidates, query, budget,
-        )
-        return QueryResult(
-            trace_id=ctx.trace_id, query=query, broker_result=broker_result,
-            reranker_result=reranker_result, builder_result=builder_result,
-            total_latency_ms=_elapsed_ms(start), outcome="success",
-        )
 
     # --- Internal stage runners ---
 

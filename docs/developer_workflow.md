@@ -25,6 +25,7 @@ DRIFTER_GEMINI_API_KEY=your-api-key-here
 DRIFTER_LANGFUSE_PUBLIC_KEY=pk-lf-drifter-dev
 DRIFTER_LANGFUSE_SECRET_KEY=sk-lf-drifter-dev
 DRIFTER_LANGFUSE_HOST=http://localhost:3000
+DRIFTER_LANGFUSE_REDIS_URL=redis://:drifter-redis@localhost:6379
 ```
 
 ### 2. Ingest data
@@ -83,6 +84,7 @@ All external services are configured via `DRIFTER_*` env vars. When not set, in-
 | `DRIFTER_VLLM_URL` | vLLM generation |
 | `DRIFTER_OTEL_ENDPOINT` | OpenTelemetry collector |
 | `DRIFTER_LANGFUSE_PUBLIC_KEY` | Langfuse observability |
+| `DRIFTER_LANGFUSE_REDIS_URL` | Redis buffer for Langfuse span export |
 
 When both `DRIFTER_GEMINI_API_KEY` and `DRIFTER_VLLM_URL` are set, Gemini is preferred.
 When both `DRIFTER_LANGFUSE_PUBLIC_KEY` and `DRIFTER_OTEL_ENDPOINT` are set, Langfuse is preferred.
@@ -177,6 +179,17 @@ docker compose up -d langfuse langfuse-worker
 DRIFTER_LANGFUSE_PUBLIC_KEY=pk-lf-drifter-dev
 DRIFTER_LANGFUSE_SECRET_KEY=sk-lf-drifter-dev
 DRIFTER_LANGFUSE_HOST=http://localhost:3000
+DRIFTER_LANGFUSE_REDIS_URL=redis://:drifter-redis@localhost:6379
+DRIFTER_LANGFUSE_BUFFER_TTL_S=300
 ```
+
+### Span Buffering
+
+The exporter buffers child spans until the root pipeline span arrives, ensuring traces are named correctly. Two backends are available:
+
+- **In-memory** (default): No extra config needed. Simple and fast but spans are lost on crash.
+- **Redis**: Set `DRIFTER_LANGFUSE_REDIS_URL` to enable. Survives restarts, works across multiple workers. Buffered spans auto-expire after `DRIFTER_LANGFUSE_BUFFER_TTL_S` seconds (default: 300).
+
+The local docker-compose exposes `langfuse-redis` on port 6379 — the same Redis instance used by Langfuse itself.
 
 When Langfuse is configured, it takes priority over OpenTelemetry (Jaeger).

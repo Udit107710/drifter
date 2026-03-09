@@ -145,6 +145,8 @@ services:
   langfuse-redis:
     image: redis:7
     command: --requirepass drifter-redis
+    ports:
+      - "6379:6379"
     deploy:
       resources:
         limits:

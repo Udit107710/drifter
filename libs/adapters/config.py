@@ -211,6 +211,8 @@ class LangfuseConfig:
     public_key: str = ""
     secret_key: str = ""
     host: str = "http://localhost:3000"
+    redis_url: str | None = None
+    buffer_ttl_s: int = 300
 
     def __post_init__(self) -> None:
         if not self.public_key:
@@ -219,6 +221,8 @@ class LangfuseConfig:
             raise ValueError("secret_key must not be empty")
         if not self.host:
             raise ValueError("host must not be empty")
+        if self.buffer_ttl_s <= 0:
+            raise ValueError("buffer_ttl_s must be > 0")
 
     def __repr__(self) -> str:
         return _masked_repr(self, ("secret_key",))

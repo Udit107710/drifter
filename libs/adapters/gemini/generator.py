@@ -73,11 +73,15 @@ class GeminiGenerator:
 
         answer_text = response.text or ""
 
-        # Extract token usage from response metadata
+        # Extract token usage from response metadata.
+        # Some models (e.g. Gemma) return None for candidates_token_count
+        # and total_token_count; fall back to word-count estimate.
         usage = response.usage_metadata
         if usage is not None:
             prompt_tokens = usage.prompt_token_count or 0
             completion_tokens = usage.candidates_token_count or 0
+            if completion_tokens == 0 and answer_text:
+                completion_tokens = len(answer_text.split())
         else:
             prompt_tokens = len(request.rendered_prompt.split())
             completion_tokens = len(answer_text.split())
