@@ -90,28 +90,42 @@ class TeiConfig:
 
 
 @dataclass(frozen=True)
-class VllmConfig:
-    """Configuration for vLLM inference server."""
+class OllamaConfig:
+    """Configuration for Ollama local LLM server.
 
-    base_url: str = "http://localhost:8000"
-    model_id: str = ""
-    api_key: str | None = None
-    timeout_s: float = 60.0
-    max_tokens: int = 1024
+    Uses the native Ollama ``/api/chat`` endpoint.  All ``options``
+    fields map directly to the Ollama model parameters documented at
+    https://github.com/ollama/ollama/blob/main/docs/modelfile.mdx.
+    """
+
+    base_url: str = "http://localhost:11434"
+    model_id: str = "llama3.2"
+    timeout_s: float = 120.0
+    num_predict: int = 4096
+    num_ctx: int = 2048
     temperature: float = 0.1
+    top_k: int = 40
+    top_p: float = 0.9
+    min_p: float = 0.0
+    seed: int | None = None
+    repeat_penalty: float = 1.1
+    repeat_last_n: int = 64
+    stop: list[str] = field(default_factory=list)
+    keep_alive: str = "5m"
 
     def __post_init__(self) -> None:
         if not self.base_url:
             raise ValueError("base_url must not be empty")
+        if not self.model_id:
+            raise ValueError("model_id must not be empty")
         if self.timeout_s <= 0:
             raise ValueError("timeout_s must be > 0")
-        if self.max_tokens <= 0:
-            raise ValueError("max_tokens must be > 0")
+        if self.num_predict <= 0:
+            raise ValueError("num_predict must be > 0")
+        if self.num_ctx <= 0:
+            raise ValueError("num_ctx must be > 0")
         if not (0 <= self.temperature <= 2):
             raise ValueError("temperature must be between 0 and 2")
-
-    def __repr__(self) -> str:
-        return _masked_repr(self, ("api_key",))
 
 
 @dataclass(frozen=True)
@@ -250,6 +264,38 @@ class GeminiConfig:
 
     def __repr__(self) -> str:
         return _masked_repr(self, ("api_key",))
+
+
+@dataclass(frozen=True)
+class VllmConfig:
+    """Configuration for vLLM server (generation and embeddings).
+
+    Uses the native vLLM API which is OpenAI-compatible with extra
+    parameters like ``top_k``, ``min_p``, and ``repetition_penalty``.
+    """
+
+    base_url: str = "http://localhost:8000"
+    model_id: str = ""
+    timeout_s: float = 120.0
+    max_tokens: int = 4096
+    temperature: float = 0.1
+    top_k: int = -1
+    top_p: float = 0.9
+    min_p: float = 0.0
+    repetition_penalty: float = 1.0
+    stop: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if not self.base_url:
+            raise ValueError("base_url must not be empty")
+        if not self.model_id:
+            raise ValueError("model_id must not be empty")
+        if self.timeout_s <= 0:
+            raise ValueError("timeout_s must be > 0")
+        if self.max_tokens <= 0:
+            raise ValueError("max_tokens must be > 0")
+        if not (0 <= self.temperature <= 2):
+            raise ValueError("temperature must be between 0 and 2")
 
 
 @dataclass(frozen=True)

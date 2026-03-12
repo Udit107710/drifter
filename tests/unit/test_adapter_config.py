@@ -8,6 +8,7 @@ import pytest
 
 from libs.adapters.config import (
     HuggingFaceConfig,
+    OllamaConfig,
     OpenSearchConfig,
     OtelConfig,
     QdrantConfig,
@@ -15,10 +16,10 @@ from libs.adapters.config import (
     TeiConfig,
     TikaConfig,
     UnstructuredConfig,
-    VllmConfig,
 )
 from libs.adapters.env import (
     load_huggingface_config,
+    load_ollama_config,
     load_opensearch_config,
     load_otel_config,
     load_qdrant_config,
@@ -26,7 +27,6 @@ from libs.adapters.env import (
     load_tei_config,
     load_tika_config,
     load_unstructured_config,
-    load_vllm_config,
 )
 
 # ── Config construction ───────────────────────────────────────────────
@@ -108,25 +108,43 @@ class TestTeiConfig:
             TeiConfig(max_batch_size=0)
 
 
-class TestVllmConfig:
+class TestOllamaConfig:
     def test_defaults(self) -> None:
-        cfg = VllmConfig()
-        assert cfg.base_url == "http://localhost:8000"
+        cfg = OllamaConfig()
+        assert cfg.base_url == "http://localhost:11434"
+        assert cfg.model_id == "llama3.2"
+        assert cfg.timeout_s == 120.0
+        assert cfg.num_predict == 4096
+        assert cfg.num_ctx == 2048
         assert cfg.temperature == 0.1
+        assert cfg.top_k == 40
+        assert cfg.top_p == 0.9
+        assert cfg.min_p == 0.0
+        assert cfg.seed is None
+        assert cfg.repeat_penalty == 1.1
+        assert cfg.repeat_last_n == 64
+        assert cfg.stop == []
+        assert cfg.keep_alive == "5m"
 
     def test_bad_temperature_raises(self) -> None:
         with pytest.raises(ValueError, match="temperature must be between 0 and 2"):
-            VllmConfig(temperature=3.0)
+            OllamaConfig(temperature=3.0)
 
-    def test_bad_max_tokens_raises(self) -> None:
-        with pytest.raises(ValueError, match="max_tokens must be > 0"):
-            VllmConfig(max_tokens=0)
+    def test_bad_num_predict_raises(self) -> None:
+        with pytest.raises(ValueError, match="num_predict must be > 0"):
+            OllamaConfig(num_predict=0)
 
-    def test_api_key_masked_in_repr(self) -> None:
-        cfg = VllmConfig(api_key="my-key")
-        r = repr(cfg)
-        assert "my-key" not in r
-        assert "***" in r
+    def test_bad_num_ctx_raises(self) -> None:
+        with pytest.raises(ValueError, match="num_ctx must be > 0"):
+            OllamaConfig(num_ctx=0)
+
+    def test_empty_model_id_raises(self) -> None:
+        with pytest.raises(ValueError, match="model_id must not be empty"):
+            OllamaConfig(model_id="")
+
+    def test_empty_base_url_raises(self) -> None:
+        with pytest.raises(ValueError, match="base_url must not be empty"):
+            OllamaConfig(base_url="")
 
 
 class TestUnstructuredConfig:
@@ -252,16 +270,28 @@ class TestEnvLoaders:
             assert cfg.base_url == "http://tei:8080"
             assert cfg.max_batch_size == 64
 
-    def test_vllm_returns_none_when_unset(self) -> None:
+    def test_ollama_returns_none_when_unset(self) -> None:
         with patch.dict("os.environ", {}, clear=True):
-            assert load_vllm_config() is None
+            assert load_ollama_config() is None
 
-    def test_vllm_from_env(self) -> None:
-        env = {"DRIFTER_VLLM_URL": "http://vllm:8000", "DRIFTER_VLLM_TEMPERATURE": "0.5"}
+    def test_ollama_from_env(self) -> None:
+        env = {
+            "DRIFTER_OLLAMA_URL": "http://ollama:11434",
+            "DRIFTER_OLLAMA_MODEL": "mistral",
+            "DRIFTER_OLLAMA_TEMPERATURE": "0.5",
+            "DRIFTER_OLLAMA_NUM_CTX": "4096",
+            "DRIFTER_OLLAMA_SEED": "42",
+            "DRIFTER_OLLAMA_STOP": "\\n,user:",
+        }
         with patch.dict("os.environ", env, clear=True):
-            cfg = load_vllm_config()
+            cfg = load_ollama_config()
             assert cfg is not None
+            assert cfg.base_url == "http://ollama:11434"
+            assert cfg.model_id == "mistral"
             assert cfg.temperature == 0.5
+            assert cfg.num_ctx == 4096
+            assert cfg.seed == 42
+            assert cfg.stop == ["\\n", "user:"]
 
     def test_unstructured_returns_none_when_unset(self) -> None:
         with patch.dict("os.environ", {}, clear=True):
