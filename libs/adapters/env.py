@@ -8,6 +8,7 @@ from libs.adapters.config import (
     GeminiConfig,
     HuggingFaceConfig,
     LangfuseConfig,
+    OllamaConfig,
     OpenAIConfig,
     OpenRouterConfig,
     OpenSearchConfig,
@@ -17,7 +18,6 @@ from libs.adapters.config import (
     TeiConfig,
     TikaConfig,
     UnstructuredConfig,
-    VllmConfig,
 )
 
 
@@ -96,24 +96,37 @@ def load_tei_config() -> TeiConfig | None:
     )
 
 
-def load_vllm_config() -> VllmConfig | None:
-    """Load vLLM config from DRIFTER_VLLM_* env vars.
+def load_ollama_config() -> OllamaConfig | None:
+    """Load Ollama config from DRIFTER_OLLAMA_* env vars.
 
-    Returns None if DRIFTER_VLLM_URL is not set.
+    Returns None if DRIFTER_OLLAMA_URL is not set.
     """
-    base_url = os.environ.get("DRIFTER_VLLM_URL")
+    base_url = os.environ.get("DRIFTER_OLLAMA_URL")
     if base_url is None:
         return None
-    return VllmConfig(
-        base_url=base_url,
-        model_id=os.environ.get("DRIFTER_VLLM_MODEL_ID", ""),
-        api_key=os.environ.get("DRIFTER_VLLM_API_KEY"),
-        timeout_s=float(os.environ.get("DRIFTER_VLLM_TIMEOUT_S", "60.0")),
-        max_tokens=int(os.environ.get("DRIFTER_VLLM_MAX_TOKENS", "1024")),
-        temperature=float(
-            os.environ.get("DRIFTER_VLLM_TEMPERATURE", "0.1")
+    kwargs: dict[str, object] = {
+        "base_url": base_url,
+        "model_id": os.environ.get("DRIFTER_OLLAMA_MODEL", "llama3.2"),
+        "timeout_s": float(os.environ.get("DRIFTER_OLLAMA_TIMEOUT_S", "120.0")),
+        "num_predict": int(os.environ.get("DRIFTER_OLLAMA_NUM_PREDICT", "4096")),
+        "num_ctx": int(os.environ.get("DRIFTER_OLLAMA_NUM_CTX", "2048")),
+        "temperature": float(os.environ.get("DRIFTER_OLLAMA_TEMPERATURE", "0.1")),
+        "top_k": int(os.environ.get("DRIFTER_OLLAMA_TOP_K", "40")),
+        "top_p": float(os.environ.get("DRIFTER_OLLAMA_TOP_P", "0.9")),
+        "min_p": float(os.environ.get("DRIFTER_OLLAMA_MIN_P", "0.0")),
+        "repeat_penalty": float(
+            os.environ.get("DRIFTER_OLLAMA_REPEAT_PENALTY", "1.1")
         ),
-    )
+        "repeat_last_n": int(os.environ.get("DRIFTER_OLLAMA_REPEAT_LAST_N", "64")),
+        "keep_alive": os.environ.get("DRIFTER_OLLAMA_KEEP_ALIVE", "5m"),
+    }
+    seed_raw = os.environ.get("DRIFTER_OLLAMA_SEED")
+    if seed_raw is not None:
+        kwargs["seed"] = int(seed_raw)
+    stop_raw = os.environ.get("DRIFTER_OLLAMA_STOP")
+    if stop_raw is not None:
+        kwargs["stop"] = [s.strip() for s in stop_raw.split(",") if s.strip()]
+    return OllamaConfig(**kwargs)  # type: ignore[arg-type]
 
 
 def load_unstructured_config() -> UnstructuredConfig | None:

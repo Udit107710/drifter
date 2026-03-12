@@ -13,6 +13,7 @@ from libs.adapters.config import (
     GeminiConfig,
     HuggingFaceConfig,
     LangfuseConfig,
+    OllamaConfig,
     OpenAIConfig,
     OpenRouterConfig,
     OpenSearchConfig,
@@ -77,14 +78,11 @@ def create_lexical_store(config: OpenSearchConfig | None = None) -> LexicalStore
 
 
 def create_embedding_provider(
-    config: TeiConfig | OpenRouterConfig | None = None,
+    config: TeiConfig | OllamaConfig | VllmConfig | OpenRouterConfig | None = None,
 ) -> EmbeddingProvider:
     """Create an embedding provider instance.
 
-    Returns :class:`DeterministicEmbeddingProvider` when *config* is
-    ``None``, :class:`OpenRouterEmbeddingProvider` for an
-    :class:`OpenRouterConfig` with ``embedding_model`` set, or
-    :class:`TeiEmbeddingProvider` for a :class:`TeiConfig`.
+    Dispatches by config type: TEI, Ollama, vLLM, OpenRouter, or mock.
     """
     if config is None:
         from libs.embeddings.mock_provider import DeterministicEmbeddingProvider
@@ -96,20 +94,27 @@ def create_embedding_provider(
 
         return OpenRouterEmbeddingProvider(config)
 
+    if isinstance(config, OllamaConfig):
+        from libs.adapters.ollama import OllamaEmbeddingProvider
+
+        return OllamaEmbeddingProvider(config)
+
+    if isinstance(config, VllmConfig):
+        from libs.adapters.vllm import VllmEmbeddingProvider
+
+        return VllmEmbeddingProvider(config)
+
     from libs.adapters.tei import TeiEmbeddingProvider
 
     return TeiEmbeddingProvider(config)
 
 
 def create_query_embedder(
-    config: TeiConfig | OpenRouterConfig | None = None,
+    config: TeiConfig | OllamaConfig | VllmConfig | OpenRouterConfig | None = None,
 ) -> QueryEmbedder:
     """Create a query embedder instance.
 
-    Returns a mock embedder when *config* is ``None``,
-    :class:`OpenRouterQueryEmbedder` for an :class:`OpenRouterConfig`
-    with ``embedding_model`` set, or :class:`TeiQueryEmbedder` for a
-    :class:`TeiConfig`.
+    Dispatches by config type: TEI, Ollama, vLLM, OpenRouter, or mock.
     """
     if config is None:
         from libs.embeddings.mock_provider import DeterministicEmbeddingProvider
@@ -128,6 +133,16 @@ def create_query_embedder(
         from libs.adapters.openrouter import OpenRouterQueryEmbedder
 
         return OpenRouterQueryEmbedder(config)
+
+    if isinstance(config, OllamaConfig):
+        from libs.adapters.ollama import OllamaQueryEmbedder
+
+        return OllamaQueryEmbedder(config)
+
+    if isinstance(config, VllmConfig):
+        from libs.adapters.vllm import VllmQueryEmbedder
+
+        return VllmQueryEmbedder(config)
 
     from libs.adapters.tei import TeiQueryEmbedder
 
@@ -169,15 +184,13 @@ def create_reranker(
 
 
 def create_generator(
-    config: VllmConfig | GeminiConfig | OpenAIConfig | OpenRouterConfig | None = None,
+    config: (
+        OllamaConfig | VllmConfig | GeminiConfig | OpenAIConfig | OpenRouterConfig | None
+    ) = None,
 ) -> Generator:
     """Create a generator instance.
 
-    Returns :class:`MockGenerator` when *config* is ``None``,
-    :class:`OpenAIGenerator` for an :class:`OpenAIConfig` or
-    :class:`OpenRouterConfig`, :class:`GeminiGenerator` for a
-    :class:`GeminiConfig`, or :class:`VllmGenerator` for a
-    :class:`VllmConfig`.
+    Dispatches by config type: Ollama, vLLM, OpenAI, OpenRouter, Gemini, or mock.
     """
     if config is None:
         from libs.generation.mock_generator import MockGenerator
@@ -210,6 +223,11 @@ def create_generator(
         from libs.adapters.gemini import GeminiGenerator
 
         return GeminiGenerator(config)
+
+    if isinstance(config, OllamaConfig):
+        from libs.adapters.ollama import OllamaGenerator
+
+        return OllamaGenerator(config)
 
     if isinstance(config, VllmConfig):
         from libs.adapters.vllm import VllmGenerator

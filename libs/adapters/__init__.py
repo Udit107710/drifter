@@ -7,7 +7,8 @@ Concrete implementations of subsystem protocols for external services:
 - **TEI** — ``EmbeddingProvider``, ``QueryEmbedder``, ``Reranker``
 - **HuggingFace** — ``Reranker`` (Inference API)
 - **OpenAI** — ``Generator``
-- **vLLM** — ``Generator``
+- **Ollama** — ``Generator`` (local LLM via native ``/api/chat``)
+
 - **Unstructured / Tika** — ``PdfParserBase``
 - **Ragas** — answer evaluation (supplementary, no existing protocol)
 - **OpenTelemetry** — ``SpanCollector``

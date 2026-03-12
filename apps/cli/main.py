@@ -46,6 +46,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Override config (repeatable)",
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
+    parser.add_argument(
+        "--config-file",
+        default=None,
+        help="Path to config.yaml (default: project root config.yaml)",
+    )
 
     subparsers = parser.add_subparsers(dest="command")
 
@@ -102,7 +107,10 @@ def main(argv: list[str] | None = None) -> int:
 
     # Create service registry
     try:
-        registry = create_registry(overrides=overrides if overrides else None)
+        registry = create_registry(
+            overrides=overrides if overrides else None,
+            config_path=args.config_file,
+        )
     except ValueError as exc:
         renderer.render_error(str(exc))
         return EXIT_CONFIG_ERROR
