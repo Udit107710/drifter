@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from libs.context_builder.models import BuilderResult
@@ -63,12 +64,17 @@ class QueryOrchestrator:
         trace_id: str | None = None,
         top_k: int = 50,
         token_budget: int | None = None,
+        on_token: Callable[[str, bool], None] | None = None,
     ) -> QueryResult:
         """Execute the full query pipeline.
 
         Stages: retrieval → reranking → context building → generation.
         Each stage is wrapped in a pipeline_span for observability.
         If reranking fails, falls back to retrieval-order candidates.
+
+        Args:
+            on_token: Optional callback ``(text, is_thinking)`` for streaming
+                      generation output to the caller in real time.
         """
         start = time.monotonic()
         ctx = self._tracer.create_context(trace_id=trace_id)
@@ -81,7 +87,7 @@ class QueryOrchestrator:
 
         with pipeline_span(self._tracer, ctx, "rag-pipeline") as root:
             root.set_attribute("query", query)
-            result = self._run_full_pipeline(ctx, query, top_k, budget, start)
+            result = self._run_full_pipeline(ctx, query, top_k, budget, start, on_token)
             record_stage_result(
                 root, outcome=result.outcome,
                 input_count=1, output_count=1 if result.outcome == "success" else 0,
@@ -99,6 +105,7 @@ class QueryOrchestrator:
         top_k: int,
         budget: int,
         start: float,
+        on_token: Callable[[str, bool], None] | None = None,
     ) -> QueryResult:
         """Inner pipeline logic, called within the root span."""
         errors: list[str] = []
@@ -145,11 +152,21 @@ class QueryOrchestrator:
             reranker_result = self._run_reranking(ctx, candidates, retrieval_query)
             ranked = reranker_result.ranked_candidates
         except Exception as exc:
-            logger.warning("pipeline: reranking failed, using retrieval order: %s", exc)
+            logger.warning("pipeline: reranking exception, using retrieval order: %s", exc)
             errors.append(f"Reranking failed, using retrieval order: {exc}")
-            # Fallback: convert retrieval candidates to ranked candidates
-            from libs.contracts.retrieval import RankedCandidate
+            ranked = []
 
+        # Fallback: if reranking returned no candidates (timeout, error,
+        # or exception), preserve retrieval order so the pipeline can
+        # still generate an answer from the retrieved context.
+        if not ranked and candidates:
+            logger.warning(
+                "pipeline: reranking produced no candidates, "
+                "falling back to retrieval order (%d candidates)",
+                len(candidates),
+            )
+            if not errors:
+                errors.append("Reranking failed, using retrieval order")
             ranked = [
                 RankedCandidate(
                     candidate=c,
@@ -169,7 +186,7 @@ class QueryOrchestrator:
 
         # --- Stage 4: Generation ---
         logger.info("pipeline: stage=generation trace_id=%s", ctx.trace_id)
-        generation_result = self._run_generation(ctx, builder_result, ctx.trace_id)
+        generation_result = self._run_generation(ctx, builder_result, ctx.trace_id, on_token)
 
         outcome = "success"
         if errors:
@@ -334,11 +351,16 @@ class QueryOrchestrator:
             return result
 
     def _run_generation(
-        self, ctx: ObservabilityContext,
-        builder_result: BuilderResult, trace_id: str,
+        self,
+        ctx: ObservabilityContext,
+        builder_result: BuilderResult,
+        trace_id: str,
+        on_token: Callable[[str, bool], None] | None = None,
     ) -> GenerationResult:
         with pipeline_span(self._tracer, ctx, "generation") as span:
-            result = self._generator.run(builder_result.context_pack, trace_id)
+            result = self._generator.run(
+                builder_result.context_pack, trace_id, on_token=on_token,
+            )
             record_stage_result(
                 span, outcome=result.outcome.value,
                 input_count=len(builder_result.context_pack.evidence),

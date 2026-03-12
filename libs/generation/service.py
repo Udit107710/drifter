@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
@@ -40,7 +41,10 @@ class GenerationService:
         self._validate = validate_citations
 
     def run(
-        self, context_pack: ContextPack, trace_id: str,
+        self,
+        context_pack: ContextPack,
+        trace_id: str,
+        on_token: Callable[[str, bool], None] | None = None,
     ) -> GenerationResult:
         start = time.monotonic()
         debug: dict[str, Any] = {
@@ -78,9 +82,17 @@ class GenerationService:
                 errors=[f"Request build failed: {exc} (trace_id={trace_id})"],
             )
 
-        # Generate
+        # Generate — pass on_token if the generator supports streaming
         try:
-            answer = self._generator.generate(request)
+            if on_token is not None and hasattr(self._generator, "generate"):
+                import inspect
+                sig = inspect.signature(self._generator.generate)
+                if "on_token" in sig.parameters:
+                    answer = self._generator.generate(request, on_token=on_token)
+                else:
+                    answer = self._generator.generate(request)
+            else:
+                answer = self._generator.generate(request)
         except Exception as exc:
             logger.error(
                 "generation: failed generator=%s trace_id=%s: %s",
