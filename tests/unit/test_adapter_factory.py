@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from libs.adapters.config import (
     HuggingFaceConfig,
+    OllamaConfig,
     OpenAIConfig,
     OpenRouterConfig,
     OpenSearchConfig,
     OtelConfig,
     QdrantConfig,
     TeiConfig,
-    VllmConfig,
 )
 from libs.adapters.factory import (
     create_embedding_provider,
@@ -22,13 +22,13 @@ from libs.adapters.factory import (
     create_span_collector,
     create_vector_store,
 )
+from libs.adapters.ollama import OllamaGenerator
 from libs.adapters.openai import OpenAIGenerator
 from libs.adapters.openrouter import OpenRouterEmbeddingProvider, OpenRouterQueryEmbedder
 from libs.adapters.opensearch import OpenSearchLexicalStore, OpenSearchVectorStore
 from libs.adapters.otel import OtelSpanExporter
 from libs.adapters.qdrant import QdrantVectorStore
 from libs.adapters.tei import TeiCrossEncoderReranker, TeiEmbeddingProvider, TeiQueryEmbedder
-from libs.adapters.vllm import VllmGenerator
 from libs.embeddings.protocols import EmbeddingProvider
 from libs.generation.mock_generator import MockGenerator
 from libs.observability.collector import NoOpCollector, SpanCollector
@@ -139,9 +139,10 @@ class TestCreateGenerator:
         assert isinstance(gen, OpenAIGenerator)
         assert gen.generator_id == "openrouter:meta/llama-3-70b"
 
-    def test_vllm_config_returns_vllm(self) -> None:
-        gen = create_generator(VllmConfig())
-        assert isinstance(gen, VllmGenerator)
+    def test_ollama_config_returns_ollama(self) -> None:
+        gen = create_generator(OllamaConfig())
+        assert isinstance(gen, OllamaGenerator)
+        assert gen.generator_id == "ollama:llama3.2"
 
 
 class TestCreateSpanCollector:

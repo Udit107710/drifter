@@ -10,6 +10,7 @@ import pytest
 
 from libs.adapters.config import (
     HuggingFaceConfig,
+    OllamaConfig,
     OpenAIConfig,
     OpenRouterConfig,
     OpenSearchConfig,
@@ -19,9 +20,9 @@ from libs.adapters.config import (
     TeiConfig,
     TikaConfig,
     UnstructuredConfig,
-    VllmConfig,
 )
 from libs.adapters.huggingface import HuggingFaceReranker
+from libs.adapters.ollama import OllamaGenerator
 from libs.adapters.openai import OpenAIGenerator
 from libs.adapters.openrouter import OpenRouterEmbeddingProvider, OpenRouterQueryEmbedder
 from libs.adapters.opensearch import OpenSearchLexicalStore, OpenSearchVectorStore
@@ -31,7 +32,6 @@ from libs.adapters.ragas import RagasAnswerEvaluator
 from libs.adapters.tei import TeiCrossEncoderReranker, TeiEmbeddingProvider, TeiQueryEmbedder
 from libs.adapters.tika import TikaPdfParser
 from libs.adapters.unstructured import UnstructuredPdfParser
-from libs.adapters.vllm import VllmGenerator
 from libs.observability.collector import SpanCollector
 from libs.parsing.parsers.pdf import PdfParserBase
 from libs.retrieval.stores.protocols import LexicalStore, VectorStore
@@ -87,9 +87,8 @@ class TestStubLifecycle:
         assert r.health_check() is False
         r.close()
 
-    def test_vllm_lifecycle(self) -> None:
-        g = VllmGenerator(VllmConfig())
-        g.connect()
+    def test_ollama_lifecycle(self) -> None:
+        g = OllamaGenerator(OllamaConfig())
         assert g.health_check() is False
         g.close()
 
@@ -201,9 +200,9 @@ class TestNotImplemented:
         with pytest.raises(RuntimeError, match="not connected"):
             r.rerank([], None)  # type: ignore[arg-type]
 
-    def test_vllm_generate_raises(self) -> None:
-        g = VllmGenerator(VllmConfig())
-        with pytest.raises(NotImplementedError):
+    def test_ollama_generate_without_connect_raises(self) -> None:
+        g = OllamaGenerator(OllamaConfig())
+        with pytest.raises(RuntimeError, match="not connected"):
             g.generate(None)  # type: ignore[arg-type]
 
     def test_unstructured_extract_raises(self) -> None:
@@ -274,6 +273,6 @@ class TestIdentifiers:
         with pytest.raises(RuntimeError, match="not connected"):
             e.embed_query("test")
 
-    def test_vllm_generator_id(self) -> None:
-        g = VllmGenerator(VllmConfig(model_id="llama-2"))
-        assert g.generator_id == "vllm:llama-2"
+    def test_ollama_generator_id(self) -> None:
+        g = OllamaGenerator(OllamaConfig(model_id="mistral"))
+        assert g.generator_id == "ollama:mistral"

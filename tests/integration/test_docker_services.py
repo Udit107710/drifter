@@ -244,10 +244,10 @@ class TestEnvVarWiring:
 
     def test_no_env_returns_none(self) -> None:
         from libs.adapters.env import (
+            load_ollama_config,
             load_opensearch_config,
             load_otel_config,
             load_qdrant_config,
-            load_vllm_config,
         )
 
         # Ensure trigger vars are not set
@@ -255,14 +255,14 @@ class TestEnvVarWiring:
             "DRIFTER_QDRANT_HOST",
             "DRIFTER_OPENSEARCH_HOSTS",
             "DRIFTER_OTEL_ENDPOINT",
-            "DRIFTER_VLLM_URL",
+            "DRIFTER_OLLAMA_URL",
         ]:
             os.environ.pop(var, None)
 
         assert load_qdrant_config() is None
         assert load_opensearch_config() is None
         assert load_otel_config() is None
-        assert load_vllm_config() is None
+        assert load_ollama_config() is None
 
     def test_factory_uses_memory_when_no_env(self) -> None:
         """With no env vars, factories return in-memory implementations."""

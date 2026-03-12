@@ -39,7 +39,7 @@ Tests use in-memory/mock implementations exclusively:
 | `MemoryLexicalStore` | OpenSearch lexical | Term matching in a dict |
 | `DeterministicEmbeddingProvider` | TEI | Hash-based vectors (reproducible) |
 | `DeterministicQueryEmbedder` | TEI query embedding | Wraps mock provider |
-| `MockGenerator` | vLLM | Deterministic answers + citations |
+| `MockGenerator` | Ollama | Deterministic answers + citations |
 | `FeatureBasedReranker` | Cross-encoder | Multi-signal scoring (no model) |
 | `InMemoryCollector` | OTLP exporter | Captures spans for assertion |
 | `InMemoryExperimentStore` | Database | Dict-backed experiment persistence |
