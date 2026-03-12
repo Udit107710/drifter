@@ -18,7 +18,12 @@ Drifter uses adapters under `libs/adapters/` to isolate external provider depend
 | OpenRouter (query) | `libs.adapters.openrouter.OpenRouterQueryEmbedder` | `QueryEmbedder` |
 | OpenAI | `libs.adapters.openai.OpenAIGenerator` | `Generator` |
 | Google Gemini | `libs.adapters.gemini.GeminiGenerator` | `Generator` |
-| vLLM | `libs.adapters.vllm.VllmGenerator` | `Generator` |
+| Ollama (generation) | `libs.adapters.ollama.OllamaGenerator` | `Generator` |
+| Ollama (embeddings) | `libs.adapters.ollama.OllamaEmbeddingProvider` | `EmbeddingProvider` |
+| Ollama (query) | `libs.adapters.ollama.OllamaQueryEmbedder` | `QueryEmbedder` |
+| vLLM (generation) | `libs.adapters.vllm.VllmGenerator` | `Generator` |
+| vLLM (embeddings) | `libs.adapters.vllm.VllmEmbeddingProvider` | `EmbeddingProvider` |
+| vLLM (query) | `libs.adapters.vllm.VllmQueryEmbedder` | `QueryEmbedder` |
 | Unstructured | `libs.adapters.unstructured.UnstructuredPdfParser` | `PdfParserBase` |
 | Apache Tika | `libs.adapters.tika.TikaPdfParser` | `PdfParserBase` |
 | Ragas | `libs.adapters.ragas.RagasAnswerEvaluator` | (standalone) |
@@ -29,9 +34,26 @@ Drifter uses adapters under `libs/adapters/` to isolate external provider depend
 
 All configs live in `libs/adapters/config.py` as frozen dataclasses. Secret fields (`api_key`, `password`) are masked in `__repr__`.
 
-### Environment Variables
+### Config YAML (recommended)
 
-Set `DRIFTER_*` env vars to configure providers. The `libs.adapters.env` module provides `load_*_config()` functions that return `None` when the primary env var is absent.
+Non-secret settings go in `config.yaml` at the project root. Explicit `provider` fields select which adapter to use:
+
+```yaml
+generation:
+  provider: ollama          # ollama | vllm | openai | openrouter | gemini
+embeddings:
+  provider: tei             # tei | ollama | vllm | openrouter
+reranking:
+  provider: huggingface     # tei | huggingface | feature
+observability:
+  provider: langfuse        # langfuse | otel
+```
+
+Secrets are injected from environment variables automatically (e.g., `DRIFTER_OPENAI_API_KEY`).
+
+### Environment Variables (fallback)
+
+When no `config.yaml` exists, set `DRIFTER_*` env vars to configure providers. The `libs.adapters.env` module provides `load_*_config()` functions that return `None` when the primary env var is absent.
 
 | Provider | Primary Env Var | Additional Vars |
 |----------|----------------|-----------------|
@@ -42,7 +64,7 @@ Set `DRIFTER_*` env vars to configure providers. The `libs.adapters.env` module 
 | TEI | `DRIFTER_TEI_URL` | `_RERANKER_URL`, `_MODEL_ID`, `_MODEL_VERSION`, `_RERANKER_MODEL_ID`, `_TIMEOUT_S`, `_MAX_BATCH_SIZE` |
 | HuggingFace | `DRIFTER_HF_TOKEN` | `_RERANKER_MODEL`, `_PROVIDER`, `_TIMEOUT_S` |
 | Gemini | `DRIFTER_GEMINI_API_KEY` | `_MODEL` (default: gemini-2.5-flash), `_TIMEOUT_S`, `_MAX_TOKENS`, `_TEMPERATURE` |
-| vLLM | `DRIFTER_VLLM_URL` | `_MODEL_ID`, `_API_KEY`, `_TIMEOUT_S`, `_MAX_TOKENS`, `_TEMPERATURE` |
+| Ollama | `DRIFTER_OLLAMA_URL` | `_MODEL_ID`, `_TIMEOUT_S`, `_NUM_PREDICT`, `_NUM_CTX`, `_TEMPERATURE`, `_TOP_K`, `_TOP_P`, `_MIN_P`, `_SEED`, `_REPEAT_PENALTY`, `_REPEAT_LAST_N`, `_STOP`, `_KEEP_ALIVE` |
 | Unstructured | `DRIFTER_UNSTRUCTURED_URL` | `_STRATEGY`, `_TIMEOUT_S` |
 | Tika | `DRIFTER_TIKA_URL` | `_TIMEOUT_S` |
 | Ragas | `DRIFTER_RAGAS_MODEL` | `_METRICS` (comma-separated) |
@@ -55,10 +77,10 @@ Use `libs.adapters.factory` to create adapter instances:
 
 ```python
 from libs.adapters.factory import create_vector_store, create_generator
-from libs.adapters.env import load_qdrant_config, load_vllm_config
+from libs.adapters.env import load_qdrant_config, load_ollama_config
 
 vector_store = create_vector_store(load_qdrant_config())  # MemoryVectorStore if unset
-generator = create_generator(load_vllm_config())          # MockGenerator if unset
+generator = create_generator(load_ollama_config())        # MockGenerator if unset
 ```
 
 Each factory returns an in-memory/mock fallback when `config=None`, keeping the system fully functional without external services.
@@ -111,12 +133,12 @@ The following adapters are fully implemented with real service backends:
 | `TeiQueryEmbedder` | `httpx` | TEI `/embed` for single queries |
 | `TeiCrossEncoderReranker` | `httpx` | TEI `/rerank` endpoint |
 | `HuggingFaceReranker` | `huggingface_hub` | HF Inference API cross-encoder reranking |
+| `OllamaGenerator` | `httpx` | Ollama local LLM generation (default port 11434) |
 
 ## Stub Adapters (Not Yet Implemented)
 
 | Adapter | Status |
 |---------|--------|
-| `VllmGenerator` | Stub — raises `NotImplementedError` |
 | `UnstructuredPdfParser` | Stub — raises `NotImplementedError` |
 | `TikaPdfParser` | Stub — raises `NotImplementedError` |
 | `RagasAnswerEvaluator` | Stub — raises `NotImplementedError` |

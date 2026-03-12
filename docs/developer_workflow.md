@@ -128,12 +128,13 @@ All external services are configured via `DRIFTER_*` env vars. When not set, in-
 | `DRIFTER_OPENROUTER_API_KEY` | OpenRouter LLM gateway |
 | `DRIFTER_OPENAI_API_KEY` | OpenAI LLM generation |
 | `DRIFTER_GEMINI_API_KEY` | Google Gemini LLM generation |
-| `DRIFTER_VLLM_URL` | vLLM generation |
+| `DRIFTER_OLLAMA_URL` | Ollama generation |
 | `DRIFTER_OTEL_ENDPOINT` | OpenTelemetry collector |
 | `DRIFTER_LANGFUSE_PUBLIC_KEY` | Langfuse observability |
 | `DRIFTER_LANGFUSE_REDIS_URL` | Redis buffer for Langfuse span export |
 
-When multiple LLM providers are configured, priority is: OpenRouter > OpenAI > Gemini > vLLM.
+When using env-var fallback (no `config.yaml`), LLM provider priority is: OpenRouter > OpenAI > Gemini > Ollama.
+With `config.yaml`, set `generation.provider` explicitly (e.g., `ollama`, `vllm`, `openai`, `openrouter`, `gemini`).
 When both `DRIFTER_LANGFUSE_PUBLIC_KEY` and `DRIFTER_OTEL_ENDPOINT` are set, Langfuse is preferred.
 
 ### CLI Overrides

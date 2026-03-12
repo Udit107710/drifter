@@ -44,13 +44,13 @@ These typed models carry metadata, lineage, version info, and token counts:
 |---------|------|--------|
 | Dense retrieval | Qdrant | Implemented |
 | Lexical retrieval | OpenSearch | Implemented |
-| Embeddings | TEI, OpenRouter | Implemented |
-| Generation | OpenAI, OpenRouter, Gemini | Implemented |
+| Embeddings | TEI, OpenRouter, Ollama, vLLM | Implemented |
+| Generation | OpenAI, OpenRouter, Gemini, Ollama, vLLM | Implemented |
 | Reranking | TEI cross-encoder, HuggingFace | Implemented |
 | Token counting | tiktoken (optional), whitespace fallback | Implemented |
 | Observability | OpenTelemetry, Langfuse | Implemented |
 | Parsing | Unstructured, Apache Tika | Stub |
-| Generation (local) | vLLM | Stub |
+| Streaming | Ollama (NDJSON), vLLM (SSE) | Implemented |
 | Evaluation | Ragas | Stub |
 | Relational storage | Postgres | Planned |
 | Blob storage | MinIO (S3-compatible) | Planned |
@@ -63,6 +63,8 @@ Core logic must not be tightly coupled to any of these.
 - **Retry with backoff**: `libs/resilience.py` provides `RetryConfig`, `resilient_call()`, and `async_resilient_call()` with exponential backoff and jitter for transient error recovery
 - **Async retrieval**: `AsyncRetrievalBroker` uses `asyncio.gather()` for parallel dense+lexical fanout, cutting hybrid retrieval latency in half
 - **Langfuse tracing**: Span buffer architecture (in-memory or Redis-backed) exports traces with correct naming via `propagate_attributes()`
+- **Config YAML**: `config.yaml` for non-secrets with explicit provider selection (`generation.provider`, `embeddings.provider`, etc.); `.env` for secrets only; backwards-compatible env-var fallback when no config file exists
+- **Streaming generation**: Ollama (NDJSON) and vLLM (SSE) support `on_token(text, is_thinking)` callback for real-time thinking model output via `rag ask --stream`
 
 ## Development Workflow
 

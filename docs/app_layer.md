@@ -30,7 +30,7 @@ The registry wires both the **query pipeline** (retrieval → reranking → cont
 
 When no env vars are set, all services use in-memory/mock implementations. Production mode activates by setting `DRIFTER_QDRANT_HOST`, `DRIFTER_OPENSEARCH_HOSTS`, etc. The CLI auto-loads `.env` from the project root via `python-dotenv`.
 
-**LLM provider priority**: OpenRouter (`DRIFTER_OPENROUTER_API_KEY`) is preferred over OpenAI (`DRIFTER_OPENAI_API_KEY`), then Gemini (`DRIFTER_GEMINI_API_KEY`), then vLLM (`DRIFTER_VLLM_URL`). If none is set, `MockGenerator` is used.
+**LLM provider selection**: With `config.yaml`, set `generation.provider` explicitly (`ollama`, `vllm`, `openai`, `openrouter`, `gemini`). In env-var fallback mode, priority is: OpenRouter > OpenAI > Gemini > Ollama. If none is configured, `MockGenerator` is used.
 
 **Reranker priority**: When `DRIFTER_TEI_RERANKER_URL` is set and the TEI server is reachable, `TeiCrossEncoderReranker` is used for neural reranking. Otherwise, if `DRIFTER_HF_TOKEN` is set and the HuggingFace Inference API is reachable, `HuggingFaceReranker` is used. Final fallback is `FeatureBasedReranker` (local, no external calls).
 

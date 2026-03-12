@@ -11,7 +11,7 @@ Reference architecture for the Drifter RAG platform.
 3. **Observability** — every stage emits structured traces (OpenTelemetry); latency, throughput, and error rates are measurable per-stage
 4. **Evaluation-first** — retrieval quality and answer quality are measured continuously, not bolted on later
 5. **Scalability path** — the architecture supports single-process local development and multi-service deployment without structural changes
-6. **Framework independence** — external tools (Qdrant, OpenSearch, vLLM, etc.) live behind adapter interfaces; core logic has zero framework imports
+6. **Framework independence** — external tools (Qdrant, OpenSearch, Ollama, vLLM, etc.) live behind adapter interfaces; core logic has zero framework imports
 
 ---
 
@@ -153,7 +153,7 @@ query normalization → retrieval broker → reranking → context builder → g
    - output ContextPack with selected chunks, token counts, and lineage
 6. Generation
    - construct prompt: system instructions + ContextPack + user query
-   - call LLM (OpenRouter, OpenAI, Gemini, or vLLM adapter)
+   - call LLM (OpenRouter, OpenAI, Gemini, Ollama, or vLLM adapter)
    - parse response into GeneratedAnswer with Citations
    - each Citation references a specific chunk in the ContextPack
 7. Verification (optional)
@@ -609,7 +609,7 @@ drifter/
 │       ├── qdrant.py         # VectorStore implementation
 │       ├── opensearch.py     # LexicalStore implementation
 │       ├── tei.py            # Embedder implementation
-│       ├── vllm.py           # Generator implementation
+│       ├── ollama.py          # Generator implementation
 │       ├── unstructured.py   # Parser implementation
 │       ├── tika.py           # Parser implementation
 │       └── memory/           # in-memory implementations for testing
@@ -652,6 +652,6 @@ Each step must include contracts, implementation, tests, and documentation befor
 | 8 | `libs/context_builder` | Evidence selection under token budget |
 | 9 | `libs/generation` | LLM reasoning over packed context |
 | 10 | `libs/evaluation` + `libs/experiments` | Measure quality; enable experimentation |
-| 11 | `libs/adapters` (real implementations) | Connect to Qdrant, OpenSearch, TEI, vLLM |
+| 11 | `libs/adapters` (real implementations) | Connect to Qdrant, OpenSearch, TEI, Ollama |
 
 Memory adapters (`libs/adapters/memory/`) are built alongside each subsystem (phases 3–9) to enable deterministic testing.

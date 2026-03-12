@@ -112,7 +112,13 @@ libs/                   Core libraries (one per subsystem)
     qdrant/             Qdrant vector store adapter
     opensearch/         OpenSearch vector + lexical adapters
     tei/                Text Embeddings Inference (embeddings, reranking)
-    vllm/               vLLM generation adapter
+    ollama/             Ollama generation, embeddings, query embedding (streaming)
+    vllm/               vLLM generation, embeddings, query embedding (streaming)
+    openai/             OpenAI generation adapter
+    openrouter/         OpenRouter generation + embeddings
+    gemini/             Google Gemini generation adapter
+    huggingface/        HuggingFace Inference API reranking
+    langfuse/           Langfuse observability exporter
     unstructured/       Unstructured PDF parser
     tika/               Apache Tika PDF parser
     ragas/              Ragas evaluation adapter
@@ -168,7 +174,7 @@ Drifter works with zero configuration using in-memory adapters. Production backe
 | `DRIFTER_QDRANT_HOST` | Qdrant vector store | MemoryVectorStore |
 | `DRIFTER_OPENSEARCH_HOSTS` | OpenSearch lexical/vector | MemoryLexicalStore |
 | `DRIFTER_TEI_BASE_URL` | Text Embeddings Inference | DeterministicEmbeddingProvider |
-| `DRIFTER_VLLM_BASE_URL` | vLLM generation | MockGenerator |
+| `DRIFTER_OLLAMA_BASE_URL` | Ollama generation | MockGenerator |
 | `DRIFTER_OTEL_ENDPOINT` | OpenTelemetry | NoOpCollector |
 
 ```bash

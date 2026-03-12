@@ -174,14 +174,14 @@ Key rules to follow:
 Update `create_generator` to accept your new config type:
 
 ```python
-def create_generator(config: VllmConfig | AnthropicConfig | None = None) -> Generator:
+def create_generator(config: OllamaConfig | AnthropicConfig | None = None) -> Generator:
     if config is None:
         from libs.generation.mock_generator import MockGenerator
         return MockGenerator()
 
-    if isinstance(config, VllmConfig):
-        from libs.adapters.vllm import VllmGenerator
-        return VllmGenerator(config)
+    if isinstance(config, OllamaConfig):
+        from libs.adapters.ollama import OllamaGenerator
+        return OllamaGenerator(config)
 
     if isinstance(config, AnthropicConfig):
         from libs.adapters.anthropic import AnthropicGenerator
@@ -226,7 +226,7 @@ The pattern is identical — only the client library and field mappings change:
 | Anthropic Claude | `AnthropicConfig` | `anthropic` | `usage.input_tokens`, `usage.output_tokens` |
 | OpenAI / ChatGPT | `OpenAIConfig` | `openai` | `usage.prompt_tokens`, `usage.completion_tokens` |
 | Google Gemini | `GeminiConfig` | `google-genai` | `usage_metadata.prompt_token_count`, `candidates_token_count` |
-| Ollama | `OllamaConfig` | `ollama` | `prompt_eval_count`, `eval_count` |
+| Ollama | `OllamaConfig` | `httpx` (native `/api/chat`) | `prompt_eval_count`, `eval_count` |
 
 The `GenerationRequest` your `generate()` receives already contains:
 - `rendered_prompt` — the full user prompt with context baked in

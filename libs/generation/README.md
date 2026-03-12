@@ -41,7 +41,10 @@ class CitationValidator(Protocol):
 | Class | Purpose |
 |-------|---------|
 | `MockGenerator` | Deterministic answers with one citation per chunk. For testing. |
-| `VllmGenerator` | Real generation via vLLM (in `libs/adapters/vllm/`) |
+| `OllamaGenerator` | Real generation via Ollama `/api/chat` (NDJSON streaming). In `libs/adapters/ollama/`. |
+| `VllmGenerator` | Real generation via vLLM `/v1/chat/completions` (SSE streaming). In `libs/adapters/vllm/`. |
+| `OpenAIGenerator` | Real generation via OpenAI/OpenRouter Chat Completions API. In `libs/adapters/openai/`. |
+| `GeminiGenerator` | Real generation via Google Gemini API. In `libs/adapters/gemini/`. |
 | `DefaultCitationValidator` | Validates citations reference chunks in the context |
 | `GenerationRequestBuilder` | Renders ContextPack into a prompt using templates |
 

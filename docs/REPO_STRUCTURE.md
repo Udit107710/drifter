@@ -24,7 +24,7 @@
 | `libs/generation/` | Prompt construction, LLM call, citation extraction |
 | `libs/evaluation/` | Retrieval and answer quality metrics, dataset management |
 | `libs/observability/` | OpenTelemetry span helpers and structured metrics |
-| `libs/adapters/` | Concrete implementations for external services (Qdrant, OpenSearch, TEI, OpenAI, OpenRouter, Gemini, HuggingFace, Langfuse, OTel) |
+| `libs/adapters/` | Concrete implementations for external services (Qdrant, OpenSearch, TEI, Ollama, vLLM, OpenAI, OpenRouter, Gemini, HuggingFace, Langfuse, OTel) |
 | `libs/adapters/protocols.py` | Adapter lifecycle protocols (`Connectable`, `HealthCheckable`) |
 | `libs/adapters/memory/` | In-memory implementations for deterministic local testing |
 | `libs/experiments/` | Reproducible experiment configuration, execution, and comparison |

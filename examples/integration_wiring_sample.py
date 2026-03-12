@@ -10,11 +10,11 @@ Usage::
 from __future__ import annotations
 
 from libs.adapters.env import (
+    load_ollama_config,
     load_opensearch_config,
     load_otel_config,
     load_qdrant_config,
     load_tei_config,
-    load_vllm_config,
 )
 from libs.adapters.factory import (
     create_embedding_provider,
@@ -33,7 +33,7 @@ def main() -> None:
     qdrant_cfg = load_qdrant_config()
     opensearch_cfg = load_opensearch_config()
     tei_cfg = load_tei_config()
-    vllm_cfg = load_vllm_config()
+    ollama_cfg = load_ollama_config()
     otel_cfg = load_otel_config()
 
     # Create adapters — falls back to in-memory/mock when config is None
@@ -42,7 +42,7 @@ def main() -> None:
     embedding_provider = create_embedding_provider(tei_cfg)
     query_embedder = create_query_embedder(tei_cfg)
     reranker = create_reranker(tei_cfg)
-    generator = create_generator(vllm_cfg)
+    generator = create_generator(ollama_cfg)
     span_collector = create_span_collector(otel_cfg)
 
     print("Adapter wiring complete:")

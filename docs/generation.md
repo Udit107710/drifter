@@ -40,7 +40,7 @@ Runtime-checkable protocol with two requirements:
 - `generator_id: str` property
 - `generate(request: GenerationRequest) -> GeneratedAnswer`
 
-Any LLM backend (vLLM, OpenAI, local model) implements this protocol. The rest of the pipeline is backend-agnostic.
+Any LLM backend (Ollama, vLLM, OpenAI, OpenRouter, Gemini) implements this protocol. The rest of the pipeline is backend-agnostic. Ollama and vLLM generators also support streaming via an `on_token(text, is_thinking)` callback for thinking model output.
 
 ### CitationValidator Protocol (`protocols.py`)
 

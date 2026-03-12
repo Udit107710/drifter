@@ -22,8 +22,14 @@ class EmbeddingProvider(Protocol):
 |-------|---------|
 | `DeterministicEmbeddingProvider` | Hash-based vectors for testing. Deterministic and reproducible. |
 | `DeterministicQueryEmbedder` | Wraps the mock provider for query embedding |
-| `TeiEmbeddingProvider` | Real embedding via TEI (in `libs/adapters/tei/`) |
+| `TeiEmbeddingProvider` | Real embedding via TEI `/embed` (in `libs/adapters/tei/`) |
 | `TeiQueryEmbedder` | Real query embedding via TEI |
+| `OllamaEmbeddingProvider` | Real embedding via Ollama `/api/embed` (in `libs/adapters/ollama/`) |
+| `OllamaQueryEmbedder` | Real query embedding via Ollama |
+| `VllmEmbeddingProvider` | Real embedding via vLLM `/v1/embeddings` (in `libs/adapters/vllm/`) |
+| `VllmQueryEmbedder` | Real query embedding via vLLM |
+| `OpenRouterEmbeddingProvider` | Real embedding via OpenRouter API (in `libs/adapters/openrouter/`) |
+| `OpenRouterQueryEmbedder` | Real query embedding via OpenRouter |
 
 ## Key Types
 

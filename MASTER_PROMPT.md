@@ -47,10 +47,10 @@ Lexical retrieval:
 - OpenSearch
 
 Embeddings:
-- TEI
+- TEI, Ollama, vLLM, OpenRouter
 
 Generation:
-- vLLM
+- Ollama, vLLM, OpenAI, OpenRouter, Gemini
 
 Relational storage (documents, chunks, lineage, crawl state, experiments):
 - Postgres

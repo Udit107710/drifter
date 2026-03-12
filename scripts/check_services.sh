@@ -51,6 +51,7 @@ check_tcp  "OTLP gRPC"   "localhost" 4317                             || ((failu
 echo ""
 echo "Model-serving (optional, not in docker-compose):"
 check_http "TEI"          "http://localhost:8080/health"               || true
+check_http "Ollama"       "http://localhost:11434/api/tags"             || true
 check_http "vLLM"         "http://localhost:8000/health"               || true
 
 echo ""
