@@ -108,10 +108,11 @@ class LocalCrossEncoderReranker:
         from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
         logger.info("Loading cross-encoder model %s on CPU...", self._model_name)
-        self._tokenizer = AutoTokenizer.from_pretrained(self._model_name)
+        self._tokenizer = AutoTokenizer.from_pretrained(self._model_name, local_files_only=True)
         self._model = AutoModelForSequenceClassification.from_pretrained(
             self._model_name,
-            torch_dtype=torch.float32,
+            dtype=torch.float32,
+            local_files_only=True,
         )
         self._model.eval()
         logger.info("Cross-encoder model %s loaded on CPU", self._model_name)

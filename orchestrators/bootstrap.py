@@ -15,8 +15,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-
-logger = logging.getLogger(__name__)
 from pathlib import Path
 from typing import Any
 
@@ -263,7 +261,7 @@ def _create_from_config(
                 local_reranker.connect()
             reranker = local_reranker
         except (ImportError, ModuleNotFoundError):
-            logger.warning(
+            _logger.warning(
                 "Local reranker requires 'torch' and 'transformers' "
                 "(install with: uv sync --extra reranker)",
             )

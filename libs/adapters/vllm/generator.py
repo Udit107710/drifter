@@ -113,6 +113,8 @@ class VllmGenerator:
         """Non-streaming generation."""
         assert self._client is not None
         resp = self._client.post("/v1/chat/completions", json=payload)
+        if resp.status_code != 200:
+            logger.error("vLLM error response: %s", resp.text[:500])
         resp.raise_for_status()
         data = resp.json()
 
@@ -179,6 +181,9 @@ class VllmGenerator:
         with self._client.stream(
             "POST", "/v1/chat/completions", json=payload,
         ) as resp:
+            if resp.status_code != 200:
+                resp.read()
+                logger.error("vLLM streaming error: %s", resp.text[:500])
             resp.raise_for_status()
             for line in resp.iter_lines():
                 if not line.startswith("data: "):
