@@ -27,6 +27,8 @@ from apps.cli.errors import EXIT_CONFIG_ERROR, EXIT_INPUT_ERROR
 from apps.cli.output import OutputRenderer
 from orchestrators.bootstrap import create_registry
 
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the argparse parser with all subcommands."""
@@ -49,7 +51,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--config-file",
         default=None,
-        help="Path to config.yaml (default: project root config.yaml)",
+        help="Path to config.yaml (default: ./config.yaml)",
+    )
+    parser.add_argument(
+        "--env-file",
+        default=None,
+        help="Path to .env file (default: ./.env)",
     )
 
     subparsers = parser.add_subparsers(dest="command")
@@ -82,8 +89,13 @@ def _parse_config_overrides(config_args: list[str]) -> dict[str, str]:
 
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point. Returns exit code."""
-    # Load .env from project root (won't override existing env vars)
-    _env_file = Path(__file__).resolve().parents[2] / ".env"
+    # Pre-parse --env-file so we can load it before full arg parsing
+    pre_parser = argparse.ArgumentParser(add_help=False)
+    pre_parser.add_argument("--env-file", default=None)
+    pre_args, _ = pre_parser.parse_known_args(argv)
+
+    # Load .env (explicit path, or default from project root / CWD)
+    _env_file = Path(pre_args.env_file) if pre_args.env_file else _PROJECT_ROOT / ".env"
     load_dotenv(_env_file)
 
     parser = build_parser()
