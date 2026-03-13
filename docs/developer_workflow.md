@@ -63,6 +63,9 @@ docker compose up -d qdrant opensearch
 
 # Langfuse observability (includes ClickHouse, Redis, Postgres, MinIO)
 docker compose up -d langfuse langfuse-worker
+
+# TEI embedding + reranking on GPU (requires NVIDIA Container Toolkit)
+docker compose --profile gpu up -d tei-embedding tei-reranker
 ```
 
 ### Local Model Serving
@@ -93,36 +96,89 @@ embeddings:
   vllm_url: http://localhost:8001
 ```
 
-#### TEI — Embeddings and Reranking (GPU)
+#### TEI — Embeddings and Reranking (GPU via Docker)
 
-TEI runs as standalone docker containers (not part of docker compose):
+TEI is included in `docker-compose.yml` behind the `gpu` profile. It requires the **NVIDIA Container Toolkit** for GPU passthrough into Docker containers.
+
+##### Prerequisites: NVIDIA Container Toolkit
+
+Install once per machine (Ubuntu/Debian):
 
 ```bash
-# TEI embeddings on GPU
-docker run --gpus all -p 8080:80 ghcr.io/huggingface/text-embeddings-inference:latest --model-id nomic-ai/nomic-embed-text-v1.5
+# 1. Add the NVIDIA container toolkit repo
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | \
+  sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+  sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+  sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
 
-# TEI reranker on GPU
-docker run --gpus all -p 8081:80 ghcr.io/huggingface/text-embeddings-inference:latest --model-id BAAI/bge-reranker-v2-m3
+# 2. Install
+sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
+
+# 3. Configure Docker and restart
+sudo nvidia-ctk runtime configure --runtime=docker
+sudo systemctl restart docker
+
+# 4. Verify GPU access inside Docker
+docker run --rm --gpus all nvidia/cuda:12.6.3-base-ubuntu24.04 nvidia-smi
 ```
 
+##### Starting TEI
+
 ```bash
+# Start TEI embedding + reranker (GPU profile)
+docker compose --profile gpu up -d
+
+# Or start only TEI services alongside existing infra
+docker compose --profile gpu up -d tei-embedding tei-reranker
+
 # Verify health
 curl http://localhost:8080/health
 curl http://localhost:8081/health
 ```
 
-Configure in `.env`:
+| Service | Port | Model | VRAM |
+|---------|------|-------|------|
+| `tei-embedding` | 8080 | `nomic-ai/nomic-embed-text-v1.5` | ~550MB |
+| `tei-reranker` | 8081 | `BAAI/bge-reranker-v2-m3` | ~1.1GB |
 
-```env
-DRIFTER_TEI_URL=http://localhost:8080
-DRIFTER_TEI_RERANKER_URL=http://localhost:8081
+Models are downloaded on first startup and cached in Docker volumes (`tei_embedding_data`, `tei_reranker_data`).
+
+Configure in `config.yaml`:
+
+```yaml
+embeddings:
+  provider: tei
+reranking:
+  provider: tei
+
+tei:
+  base_url: http://localhost:8080
+  reranker_url: http://localhost:8081
 ```
 
-When `DRIFTER_TEI_RERANKER_URL` is set and the server is reachable, the bootstrap uses `TeiCrossEncoderReranker` instead of the local `FeatureBasedReranker`. When not set or unreachable, it falls back automatically.
+When `tei.reranker_url` is set and the server is reachable, the bootstrap uses `TeiCrossEncoderReranker`. When not set or unreachable, it falls back automatically.
 
 #### Local CPU Reranker — No External Service
 
-The `FeatureBasedReranker` uses transformers locally and requires no external service. It is the default when no TEI reranker URL is configured. Set `reranking.provider: feature` in `config.yaml` to use it explicitly.
+The `LocalCrossEncoderReranker` loads a cross-encoder model (e.g. `BAAI/bge-reranker-v2-m3`) on CPU via transformers. No external service or GPU needed. Install the optional dependency and configure:
+
+```bash
+uv sync --extra reranker
+```
+
+```yaml
+reranking:
+  provider: local
+
+local_reranker:
+  model_id: BAAI/bge-reranker-v2-m3
+  timeout_s: 30.0
+```
+
+The model is downloaded from HuggingFace Hub on first use and cached locally. Subsequent loads use `local_files_only=True` (no network calls). Expect ~50-200ms per rerank call for 10-20 candidates on a modern CPU.
+
+For a lightweight fallback that requires no model download, set `reranking.provider: feature` to use `FeatureBasedReranker` (heuristic-based, no ML model).
 
 ## Testing
 
