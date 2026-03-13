@@ -28,6 +28,7 @@ Drifter uses adapters under `libs/adapters/` to isolate external provider depend
 | Apache Tika | `libs.adapters.tika.TikaPdfParser` | `PdfParserBase` |
 | Ragas | `libs.adapters.ragas.RagasAnswerEvaluator` | (standalone) |
 | OpenTelemetry | `libs.adapters.otel.OtelSpanExporter` | `SpanCollector` |
+| Local CPU (reranking) | `libs.reranking.local_cross_encoder.LocalCrossEncoderReranker` | `Reranker` |
 | Langfuse | `libs.adapters.langfuse.LangfuseSpanExporter` | `SpanCollector` |
 
 ## Configuration
@@ -40,11 +41,11 @@ Non-secret settings go in `config.yaml` at the project root. Explicit `provider`
 
 ```yaml
 generation:
-  provider: ollama          # ollama | vllm | openai | openrouter | gemini
+  provider: vllm            # ollama | vllm | openai | openrouter | gemini
 embeddings:
-  provider: tei             # tei | ollama | vllm | openrouter
+  provider: vllm            # tei | ollama | vllm | openrouter
 reranking:
-  provider: huggingface     # tei | huggingface | feature
+  provider: local           # local | tei | huggingface | feature
 observability:
   provider: langfuse        # langfuse | otel
 ```
@@ -134,6 +135,12 @@ The following adapters are fully implemented with real service backends:
 | `TeiCrossEncoderReranker` | `httpx` | TEI `/rerank` endpoint |
 | `HuggingFaceReranker` | `huggingface_hub` | HF Inference API cross-encoder reranking |
 | `OllamaGenerator` | `httpx` | Ollama local LLM generation (default port 11434) |
+| `OllamaEmbeddingProvider` | `httpx` | Ollama embeddings (batch via /api/embed) |
+| `OllamaQueryEmbedder` | `httpx` | Ollama single-query embedding |
+| `VllmGenerator` | `httpx` | vLLM Chat Completions (SSE streaming, thinking models) |
+| `VllmEmbeddingProvider` | `httpx` | vLLM /v1/embeddings (batch) |
+| `VllmQueryEmbedder` | `httpx` | vLLM single-query embedding |
+| `LocalCrossEncoderReranker` | `transformers` + `torch` | CPU cross-encoder, lazy model load |
 
 ## Stub Adapters (Not Yet Implemented)
 

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Drifter is a **modular, production-grade Retrieval Augmented Generation (RAG) system** built from first principles. It is designed for learning, experimentation, and scalable deployment — not a toy chatbot.
 
-The project has completed the **core implementation phase**. All 14 subsystems are functional with real adapter integrations (Qdrant, OpenSearch, TEI, OpenRouter, OpenAI, Gemini, HuggingFace, Langfuse). Architecture docs, implementation prompts, and Claude skills are established.
+The project has completed the **core implementation phase**. All 14 subsystems are functional with real adapter integrations (Qdrant, OpenSearch, TEI, vLLM, Ollama, OpenRouter, OpenAI, Gemini, HuggingFace, Langfuse). Architecture docs, implementation prompts, and Claude skills are established. The system runs fully locally on GPU+CPU with no external API calls.
 
 ## Architecture
 
@@ -46,7 +46,7 @@ These typed models carry metadata, lineage, version info, and token counts:
 | Lexical retrieval | OpenSearch | Implemented |
 | Embeddings | TEI, OpenRouter, Ollama, vLLM | Implemented |
 | Generation | OpenAI, OpenRouter, Gemini, Ollama, vLLM | Implemented |
-| Reranking | TEI cross-encoder, HuggingFace | Implemented |
+| Reranking | TEI cross-encoder, HuggingFace, Local CPU cross-encoder | Implemented |
 | Token counting | tiktoken (optional), whitespace fallback | Implemented |
 | Observability | OpenTelemetry, Langfuse | Implemented |
 | Parsing | Unstructured, Apache Tika | Stub |
@@ -64,7 +64,8 @@ Core logic must not be tightly coupled to any of these.
 - **Async retrieval**: `AsyncRetrievalBroker` uses `asyncio.gather()` for parallel dense+lexical fanout, cutting hybrid retrieval latency in half
 - **Langfuse tracing**: Span buffer architecture (in-memory or Redis-backed) exports traces with correct naming via `propagate_attributes()`
 - **Config YAML**: `config.yaml` for non-secrets with explicit provider selection (`generation.provider`, `embeddings.provider`, etc.); `.env` for secrets only; backwards-compatible env-var fallback when no config file exists
-- **Streaming generation**: Ollama (NDJSON) and vLLM (SSE) support `on_token(text, is_thinking)` callback for real-time thinking model output via `rag ask --stream`
+- **Streaming generation**: Ollama (NDJSON) and vLLM (SSE) support `on_token(text, is_thinking)` callback for real-time thinking model output via `drifter ask --stream`
+- **Local CPU reranking**: `LocalCrossEncoderReranker` loads cross-encoder models (e.g. `BAAI/bge-reranker-v2-m3`) on CPU via transformers; graceful `ImportError` fallback when torch not installed
 
 ## Development Workflow
 

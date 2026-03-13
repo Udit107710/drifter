@@ -22,25 +22,28 @@ make typecheck
 
 ### CLI
 
-Drifter ships a `rag` CLI that works with zero external services:
+Drifter ships a `drifter` CLI that works with zero external services:
 
 ```bash
 # Ask a question (uses in-memory/mock services by default)
-uv run rag ask "What is machine learning?"
+uv run drifter ask "What is machine learning?"
+
+# Stream tokens in real-time (Ollama NDJSON, vLLM SSE)
+uv run drifter ask --stream "What is machine learning?"
 
 # JSON output
-uv run rag --json ask "What is machine learning?"
+uv run drifter --json ask "What is machine learning?"
 
 # Run individual pipeline stages
-uv run rag retrieve "query" --mode dense --top-k 10
-uv run rag rerank "query" --top-k 10
-uv run rag build-context "query" --token-budget 2000
+uv run drifter retrieve "query" --mode dense --top-k 10
+uv run drifter rerank "query" --top-k 10
+uv run drifter build-context "query" --token-budget 2000
 
 # Full debug output (always JSON)
-uv run rag debug-query "query"
+uv run drifter debug-query "query"
 
 # Run evaluation
-uv run rag evaluate --dataset eval_data.json --k 5,10,20
+uv run drifter evaluate --dataset eval_data.json --k 5,10,20
 ```
 
 See [docs/cli_commands.md](docs/cli_commands.md) for the full command reference.
@@ -80,7 +83,7 @@ Libraries never import each other. Orchestrators wire them together by passing o
 
 ```
 apps/                   Application entry points
-  cli/                  CLI application (rag command)
+  cli/                  CLI application (drifter command)
     commands/           Individual command handlers
   api/                  Query-serving HTTP API (planned)
   worker/               Background ingestion worker (planned)
@@ -125,7 +128,7 @@ libs/                   Core libraries (one per subsystem)
     otel/               OpenTelemetry span exporter
 
 tests/
-  unit/                 Deterministic tests (683 tests, ~0.3s, no external services)
+  unit/                 Deterministic tests (819 tests, ~0.3s, no external services)
   integration/          Integration tests (planned)
   fixtures/             Sample documents for testing
 
@@ -175,6 +178,8 @@ Drifter works with zero configuration using in-memory adapters. Production backe
 | `DRIFTER_OPENSEARCH_HOSTS` | OpenSearch lexical/vector | MemoryLexicalStore |
 | `DRIFTER_TEI_BASE_URL` | Text Embeddings Inference | DeterministicEmbeddingProvider |
 | `DRIFTER_OLLAMA_BASE_URL` | Ollama generation | MockGenerator |
+| `DRIFTER_VLLM_BASE_URL` | vLLM generation (streaming via SSE) | MockGenerator |
+| `DRIFTER_VLLM_EMBEDDINGS_BASE_URL` | vLLM embeddings | DeterministicEmbeddingProvider |
 | `DRIFTER_OTEL_ENDPOINT` | OpenTelemetry | NoOpCollector |
 
 ```bash
@@ -190,18 +195,20 @@ docker compose up -d
 Non-secret config can be overridden at runtime:
 
 ```bash
-uv run rag --config token_budget=5000 ask "query"
-uv run rag --config reranker_top_n=10 rerank "query"
+uv run drifter --config token_budget=5000 ask "query"
+uv run drifter --config reranker_top_n=10 rerank "query"
+uv run drifter --config-file custom_config.yaml ask "query"
+uv run drifter --env-file .env.staging ask "query"
 ```
 
-Secret fields (`api_key`, `password`, `auth`) are rejected from `--config` for security.
+Secret fields (`api_key`, `password`, `auth`) are rejected from `--config` for security. Use `--config-file` to specify a custom `config.yaml` path and `--env-file` to specify a custom `.env` path.
 
 ## Testing
 
 All tests are deterministic and local. No external services required.
 
 ```bash
-make test          # Run all 683 tests
+make test          # Run all 819 tests
 make test-unit     # Unit tests only
 make lint          # Ruff linting
 make typecheck     # mypy strict mode
@@ -226,10 +233,10 @@ Changes affecting retrieval quality must include evaluation with metrics:
 
 ```bash
 # Evaluate retrieval
-uv run rag evaluate --dataset data.json --k 5,10,20
+uv run drifter evaluate --dataset data.json --k 5,10,20
 
 # Run experiment
-uv run rag experiment run --config experiment.json
+uv run drifter experiment run --config experiment.json
 ```
 
 Evaluate lexical, dense, hybrid, and reranked outputs separately. Recommended datasets: BEIR, HotpotQA, Natural Questions.

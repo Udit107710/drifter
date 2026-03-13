@@ -3,7 +3,7 @@
 ## Usage
 
 ```
-rag <command> [options]
+drifter <command> [options]
 ```
 
 ## Global Flags
@@ -14,12 +14,14 @@ rag <command> [options]
 | `--trace <id>` | Use specific trace ID |
 | `--config KEY=VALUE` | Override config (repeatable) |
 | `-v`, `--verbose` | Verbose output |
+| `--config-file CONFIG_FILE` | Override path to config YAML |
+| `--env-file ENV_FILE` | Override path to .env file |
 
 Global flags must appear before the subcommand.
 
 ## Subsystem Commands
 
-### `rag retrieve <query>`
+### `drifter retrieve <query>`
 
 Run retrieval only.
 
@@ -28,7 +30,7 @@ Run retrieval only.
 | `--top-k` | 50 | Number of candidates |
 | `--mode` | hybrid | `dense`, `lexical`, or `hybrid` |
 
-### `rag rerank <query>`
+### `drifter rerank <query>`
 
 Retrieve + rerank.
 
@@ -37,7 +39,7 @@ Retrieve + rerank.
 | `--top-k` | 50 | Retrieval candidates |
 | `--top-n` | 0 | Reranker top-n cutoff (0 = all) |
 
-### `rag build-context <query>`
+### `drifter build-context <query>`
 
 Retrieve + rerank + build context pack.
 
@@ -46,7 +48,7 @@ Retrieve + rerank + build context pack.
 | `--top-k` | 50 | Retrieval candidates |
 | `--token-budget` | 3000 | Token budget for context |
 
-### `rag generate <query>`
+### `drifter generate <query>`
 
 Full pipeline, show generation details.
 
@@ -55,7 +57,7 @@ Full pipeline, show generation details.
 | `--top-k` | 50 | Retrieval candidates |
 | `--token-budget` | 3000 | Token budget |
 
-### `rag ingest`
+### `drifter ingest`
 
 Ingest documents from a local file or directory. Runs the full pipeline: read → parse → chunk → embed → index into vector and lexical stores.
 
@@ -70,13 +72,13 @@ Supported file types: Markdown (`.md`), plain text (`.txt`).
 
 ```bash
 # Ingest a directory of markdown files
-uv run rag ingest --path data/novel_chapters/
+uv run drifter ingest --path data/novel_chapters/
 
 # Ingest a single file
-uv run rag ingest --path data/notes.md
+uv run drifter ingest --path data/notes.md
 
 # With explicit run ID for idempotent replay
-uv run rag ingest --path data/novel_chapters/ --run-id my-run-001
+uv run drifter ingest --path data/novel_chapters/ --run-id my-run-001
 ```
 
 **Output:**
@@ -90,7 +92,7 @@ Chunks produced:    96
 Chunks indexed:     192
 ```
 
-### `rag index`
+### `drifter index`
 
 Index previously ingested chunks.
 
@@ -100,7 +102,7 @@ Index previously ingested chunks.
 
 ## End-to-End Commands
 
-### `rag ask <query>`
+### `drifter ask <query>`
 
 Full pipeline, display answer with citations.
 
@@ -109,8 +111,9 @@ Full pipeline, display answer with citations.
 | `--top-k` | 50 | Retrieval candidates |
 | `--token-budget` | 3000 | Token budget |
 | `--mode` | hybrid | Retrieval mode |
+| `--stream` | off | Enable streaming generation with thinking model output |
 
-### `rag debug-query <query>`
+### `drifter debug-query <query>`
 
 Full pipeline with all debug information. Always outputs JSON.
 
@@ -121,7 +124,7 @@ Full pipeline with all debug information. Always outputs JSON.
 
 ## Evaluation Commands
 
-### `rag evaluate`
+### `drifter evaluate`
 
 Run retrieval evaluation against a dataset.
 
@@ -130,7 +133,7 @@ Run retrieval evaluation against a dataset.
 | `--dataset` | required | Path to evaluation dataset JSON |
 | `--k` | 5,10,20 | Comma-separated k values |
 
-### `rag experiment run`
+### `drifter experiment run`
 
 Run an experiment.
 
@@ -139,7 +142,7 @@ Run an experiment.
 | `--config` | required | Experiment config JSON path |
 | `--hypothesis` | "" | Experiment hypothesis |
 
-### `rag experiment compare`
+### `drifter experiment compare`
 
 Compare two experiment runs. (Requires persistent store.)
 
