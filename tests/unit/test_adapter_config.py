@@ -96,7 +96,7 @@ class TestOpenSearchConfig:
 class TestTeiConfig:
     def test_defaults(self) -> None:
         cfg = TeiConfig()
-        assert cfg.base_url == "http://localhost:8080"
+        assert cfg.base_url == "http://localhost:8090"
         assert cfg.max_batch_size == 32
 
     def test_empty_url_raises(self) -> None:

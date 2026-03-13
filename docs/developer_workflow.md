@@ -96,53 +96,65 @@ embeddings:
   vllm_url: http://localhost:8001
 ```
 
-#### TEI — Embeddings and Reranking (GPU via Docker)
+#### TEI — Embeddings and Reranking (GPU)
 
-TEI is included in `docker-compose.yml` behind the `gpu` profile. It requires the **NVIDIA Container Toolkit** for GPU passthrough into Docker containers.
+TEI (Text Embeddings Inference) serves both embedding and cross-encoder reranking models on GPU. Two install methods: **local build** (recommended) or **Docker**.
 
-##### Prerequisites: NVIDIA Container Toolkit
+##### Option A: Local build (recommended)
 
-Install once per machine (Ubuntu/Debian):
+Requires CUDA 12.2+ and Rust:
 
 ```bash
-# 1. Add the NVIDIA container toolkit repo
+# 1. Ensure CUDA is in PATH
+export PATH=$PATH:/usr/local/cuda/bin
+
+# 2. Install Rust (if not already installed)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# 3. Clone and build TEI (Ada Lovelace / Ampere / Hopper GPUs)
+git clone https://github.com/huggingface/text-embeddings-inference.git
+cd text-embeddings-inference
+cargo install --path router -F candle-cuda
+# For Turing GPUs (T4, RTX 2000): use -F candle-cuda-turing instead
+
+# 4. Start embedding server
+text-embeddings-router --model-id nomic-ai/nomic-embed-text-v1.5 --dtype float16 --port 8090
+
+# 5. Start reranker server (separate terminal)
+text-embeddings-router --model-id BAAI/bge-reranker-v2-m3 --dtype float16 --port 8091
+```
+
+##### Option B: Docker (requires NVIDIA Container Toolkit)
+
+TEI is included in `docker-compose.yml` behind the `gpu` profile:
+
+```bash
+# One-time setup: install NVIDIA Container Toolkit (Ubuntu/Debian)
 curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | \
   sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
 curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
   sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
   sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-
-# 2. Install
 sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
-
-# 3. Configure Docker and restart
 sudo nvidia-ctk runtime configure --runtime=docker
 sudo systemctl restart docker
 
-# 4. Verify GPU access inside Docker
-docker run --rm --gpus all nvidia/cuda:12.6.3-base-ubuntu24.04 nvidia-smi
-```
-
-##### Starting TEI
-
-```bash
-# Start TEI embedding + reranker (GPU profile)
-docker compose --profile gpu up -d
-
-# Or start only TEI services alongside existing infra
+# Start TEI services
 docker compose --profile gpu up -d tei-embedding tei-reranker
-
-# Verify health
-curl http://localhost:8080/health
-curl http://localhost:8081/health
 ```
+
+##### TEI services
 
 | Service | Port | Model | VRAM |
 |---------|------|-------|------|
-| `tei-embedding` | 8080 | `nomic-ai/nomic-embed-text-v1.5` | ~550MB |
-| `tei-reranker` | 8081 | `BAAI/bge-reranker-v2-m3` | ~1.1GB |
+| TEI embedding | 8090 | `nomic-ai/nomic-embed-text-v1.5` | ~550MB |
+| TEI reranker | 8091 | `BAAI/bge-reranker-v2-m3` | ~1.1GB |
 
-Models are downloaded on first startup and cached in Docker volumes (`tei_embedding_data`, `tei_reranker_data`).
+```bash
+# Verify health
+curl http://localhost:8090/health
+curl http://localhost:8091/health
+```
 
 Configure in `config.yaml`:
 
@@ -153,8 +165,8 @@ reranking:
   provider: tei
 
 tei:
-  base_url: http://localhost:8080
-  reranker_url: http://localhost:8081
+  base_url: http://localhost:8090
+  reranker_url: http://localhost:8091
 ```
 
 When `tei.reranker_url` is set and the server is reachable, the bootstrap uses `TeiCrossEncoderReranker`. When not set or unreachable, it falls back automatically.

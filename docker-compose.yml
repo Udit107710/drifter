@@ -134,7 +134,7 @@ services:
     profiles: ["gpu"]
     command: --model-id nomic-ai/nomic-embed-text-v1.5
     ports:
-      - "8080:80"
+      - "8090:80"
     volumes:
       - tei_embedding_data:/data
     deploy:
@@ -158,7 +158,7 @@ services:
     profiles: ["gpu"]
     command: --model-id BAAI/bge-reranker-v2-m3
     ports:
-      - "8081:80"
+      - "8091:80"
     volumes:
       - tei_reranker_data:/data
     deploy:

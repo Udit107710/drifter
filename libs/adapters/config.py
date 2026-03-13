@@ -72,7 +72,7 @@ class OpenSearchConfig:
 class TeiConfig:
     """Configuration for Text Embeddings Inference."""
 
-    base_url: str = "http://localhost:8080"
+    base_url: str = "http://localhost:8090"
     reranker_url: str = ""
     model_id: str = ""
     model_version: str = ""

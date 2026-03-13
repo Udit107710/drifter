@@ -49,8 +49,8 @@ opensearch:
   timeout_s: 10.0
 
 tei:
-  base_url: http://localhost:8080
-  reranker_url: http://localhost:8081
+  base_url: http://localhost:8090
+  reranker_url: http://localhost:8091
   timeout_s: 30.0
   max_batch_size: 32
 
