@@ -13,6 +13,7 @@ from libs.adapters.config import (
     GeminiConfig,
     HuggingFaceConfig,
     LangfuseConfig,
+    LocalRerankerConfig,
     OllamaConfig,
     OpenAIConfig,
     OpenRouterConfig,
@@ -23,6 +24,7 @@ from libs.adapters.config import (
     TikaConfig,
     UnstructuredConfig,
     VllmConfig,
+    VllmEmbeddingsConfig,
 )
 
 if TYPE_CHECKING:
@@ -78,7 +80,8 @@ def create_lexical_store(config: OpenSearchConfig | None = None) -> LexicalStore
 
 
 def create_embedding_provider(
-    config: TeiConfig | OllamaConfig | VllmConfig | OpenRouterConfig | None = None,
+    config: TeiConfig | OllamaConfig | VllmConfig | VllmEmbeddingsConfig
+    | OpenRouterConfig | None = None,
 ) -> EmbeddingProvider:
     """Create an embedding provider instance.
 
@@ -99,7 +102,7 @@ def create_embedding_provider(
 
         return OllamaEmbeddingProvider(config)
 
-    if isinstance(config, VllmConfig):
+    if isinstance(config, (VllmConfig, VllmEmbeddingsConfig)):
         from libs.adapters.vllm import VllmEmbeddingProvider
 
         return VllmEmbeddingProvider(config)
@@ -110,7 +113,8 @@ def create_embedding_provider(
 
 
 def create_query_embedder(
-    config: TeiConfig | OllamaConfig | VllmConfig | OpenRouterConfig | None = None,
+    config: TeiConfig | OllamaConfig | VllmConfig | VllmEmbeddingsConfig
+    | OpenRouterConfig | None = None,
 ) -> QueryEmbedder:
     """Create a query embedder instance.
 
@@ -139,7 +143,7 @@ def create_query_embedder(
 
         return OllamaQueryEmbedder(config)
 
-    if isinstance(config, VllmConfig):
+    if isinstance(config, (VllmConfig, VllmEmbeddingsConfig)):
         from libs.adapters.vllm import VllmQueryEmbedder
 
         return VllmQueryEmbedder(config)
@@ -150,16 +154,23 @@ def create_query_embedder(
 
 
 def create_reranker(
-    config: TeiConfig | HuggingFaceConfig | None = None,
+    config: TeiConfig | HuggingFaceConfig | LocalRerankerConfig | None = None,
     model_name: str = "cross-encoder",
 ) -> Reranker:
     """Create a reranker instance.
 
-    Returns :class:`TeiCrossEncoderReranker` for a :class:`TeiConfig` with
-    a reranker URL, :class:`HuggingFaceReranker` for a
-    :class:`HuggingFaceConfig`, or :class:`CrossEncoderReranker` stub
-    otherwise.
+    Returns :class:`LocalCrossEncoderReranker` for a :class:`LocalRerankerConfig`,
+    :class:`TeiCrossEncoderReranker` for a :class:`TeiConfig` with a reranker URL,
+    :class:`HuggingFaceReranker` for a :class:`HuggingFaceConfig`, or
+    :class:`CrossEncoderReranker` stub otherwise.
     """
+    if isinstance(config, LocalRerankerConfig):
+        from libs.reranking.local_cross_encoder import LocalCrossEncoderReranker
+
+        return LocalCrossEncoderReranker(
+            model_name=config.model_id, timeout_s=config.timeout_s,
+        )
+
     if isinstance(config, HuggingFaceConfig):
         from libs.adapters.huggingface import HuggingFaceReranker
 

@@ -13,7 +13,7 @@ from typing import Any
 
 import httpx
 
-from libs.adapters.config import VllmConfig
+from libs.adapters.config import VllmConfig, VllmEmbeddingsConfig
 from libs.contracts.chunks import Chunk
 from libs.contracts.embeddings import ChunkEmbedding
 from libs.embeddings.models import EmbeddingModelInfo
@@ -27,7 +27,7 @@ class VllmEmbeddingProvider:
     Satisfies the ``EmbeddingProvider`` protocol.
     """
 
-    def __init__(self, config: VllmConfig) -> None:
+    def __init__(self, config: VllmConfig | VllmEmbeddingsConfig) -> None:
         self._config = config
         self._client: httpx.Client | None = None
         self._model_info_cache: EmbeddingModelInfo | None = None

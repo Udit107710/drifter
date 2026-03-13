@@ -10,7 +10,7 @@ import logging
 
 import httpx
 
-from libs.adapters.config import VllmConfig
+from libs.adapters.config import VllmConfig, VllmEmbeddingsConfig
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ class VllmQueryEmbedder:
     Satisfies the ``QueryEmbedder`` protocol.
     """
 
-    def __init__(self, config: VllmConfig) -> None:
+    def __init__(self, config: VllmConfig | VllmEmbeddingsConfig) -> None:
         self._config = config
         self._client: httpx.Client | None = None
 

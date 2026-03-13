@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 from pathlib import Path
 from typing import Any
 
@@ -149,7 +151,7 @@ def _has_yaml_config(cfg: DrifterConfig) -> bool:
     """Check if any adapter config was loaded from YAML."""
     return any([
         cfg.qdrant, cfg.opensearch, cfg.tei, cfg.ollama, cfg.vllm,
-        cfg.openrouter, cfg.openai, cfg.gemini, cfg.huggingface,
+        cfg.vllm_embeddings, cfg.openrouter, cfg.openai, cfg.gemini, cfg.huggingface,
         cfg.otel, cfg.langfuse, cfg.generation_provider,
     ])
 
@@ -186,6 +188,8 @@ def _create_from_config(
     embedding_config = None
     if emb_provider == "ollama" and cfg.ollama:
         embedding_config = cfg.ollama
+    elif emb_provider == "vllm" and cfg.vllm_embeddings:
+        embedding_config = cfg.vllm_embeddings
     elif emb_provider == "vllm" and cfg.vllm:
         embedding_config = cfg.vllm
     elif emb_provider == "openrouter" and cfg.openrouter and cfg.openrouter.embedding_model:
@@ -252,7 +256,18 @@ def _create_from_config(
     reranker = None
     rerank_provider = cfg.reranking_provider
 
-    if rerank_provider == "tei" and cfg.tei:
+    if rerank_provider == "local" and cfg.local_reranker:
+        try:
+            local_reranker = create_reranker(cfg.local_reranker)
+            if isinstance(local_reranker, Connectable):
+                local_reranker.connect()
+            reranker = local_reranker
+        except (ImportError, ModuleNotFoundError):
+            logger.warning(
+                "Local reranker requires 'torch' and 'transformers' "
+                "(install with: uv sync --extra reranker)",
+            )
+    elif rerank_provider == "tei" and cfg.tei:
         tei_reranker = create_reranker(cfg.tei)
         if isinstance(tei_reranker, Connectable):
             tei_reranker.connect()
