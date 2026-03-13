@@ -128,8 +128,8 @@ class TeiEmbeddingProvider:
         resp.raise_for_status()
         info: dict[str, Any] = resp.json()
 
-        model_id = self._config.model_id or info.get("model_id", "unknown")
-        model_version = self._config.model_version or info.get("model_sha", "unknown")
+        model_id = self._config.model_id or info.get("model_id") or "unknown"
+        model_version = self._config.model_version or info.get("model_sha") or "unknown"
 
         # Probe dimensions by embedding a single token
         probe = self._embed_texts(["hello"])
