@@ -118,10 +118,10 @@ cargo install --path router -F candle-cuda
 # For Turing GPUs (T4, RTX 2000): use -F candle-cuda-turing instead
 
 # 4. Start embedding server
-text-embeddings-router --model-id nomic-ai/nomic-embed-text-v1.5 --dtype float16 --port 8090
+text-embeddings-router --model-id nomic-ai/nomic-embed-text-v1.5 --dtype float16 --port 8090 --prometheus-port 9090
 
 # 5. Start reranker server (separate terminal)
-text-embeddings-router --model-id BAAI/bge-reranker-v2-m3 --dtype float16 --port 8091
+text-embeddings-router --model-id Alibaba-NLP/gte-reranker-modernbert-base --dtype float16 --port 8091 --prometheus-port 9091
 ```
 
 ##### Option B: Docker (requires NVIDIA Container Toolkit)
@@ -148,7 +148,7 @@ docker compose --profile gpu up -d tei-embedding tei-reranker
 | Service | Port | Model | VRAM |
 |---------|------|-------|------|
 | TEI embedding | 8090 | `nomic-ai/nomic-embed-text-v1.5` | ~550MB |
-| TEI reranker | 8091 | `BAAI/bge-reranker-v2-m3` | ~1.1GB |
+| TEI reranker | 8091 | `Alibaba-NLP/gte-reranker-modernbert-base` | ~600MB |
 
 ```bash
 # Verify health

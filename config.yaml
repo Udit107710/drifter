@@ -11,10 +11,10 @@ generation:
   provider: vllm            # ollama | vllm | openai | openrouter | gemini
 
 embeddings:
-  provider: vllm            # tei | ollama | vllm | openrouter
+  provider: tei             # tei | ollama | vllm | openrouter
 
 reranking:
-  provider: local           # local | tei | huggingface | feature
+  provider: tei             # local | tei | huggingface | feature
 
 observability:
   provider: langfuse        # langfuse | otel
@@ -51,6 +51,7 @@ opensearch:
 tei:
   base_url: http://localhost:8090
   reranker_url: http://localhost:8091
+  reranker_model_id: Alibaba-NLP/gte-reranker-modernbert-base
   timeout_s: 30.0
   max_batch_size: 32
 

@@ -156,7 +156,7 @@ services:
   tei-reranker:
     image: ghcr.io/huggingface/text-embeddings-inference:latest
     profiles: ["gpu"]
-    command: --model-id BAAI/bge-reranker-v2-m3
+    command: --model-id Alibaba-NLP/gte-reranker-modernbert-base
     ports:
       - "8091:80"
     volumes:
