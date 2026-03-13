@@ -299,6 +299,42 @@ class VllmConfig:
 
 
 @dataclass(frozen=True)
+class VllmEmbeddingsConfig:
+    """Configuration for a dedicated vLLM embedding server.
+
+    Separate from ``VllmConfig`` so generation and embedding instances
+    can run on different ports/models without overloading one config.
+    """
+
+    base_url: str = "http://localhost:8001"
+    model_id: str = ""
+    timeout_s: float = 30.0
+    max_batch_size: int = 32
+
+    def __post_init__(self) -> None:
+        if not self.base_url:
+            raise ValueError("base_url must not be empty")
+        if not self.model_id:
+            raise ValueError("model_id must not be empty")
+        if self.timeout_s <= 0:
+            raise ValueError("timeout_s must be > 0")
+
+
+@dataclass(frozen=True)
+class LocalRerankerConfig:
+    """Configuration for a local CPU-based cross-encoder reranker."""
+
+    model_id: str = "BAAI/bge-reranker-v2-m3"
+    timeout_s: float = 30.0
+
+    def __post_init__(self) -> None:
+        if not self.model_id:
+            raise ValueError("model_id must not be empty")
+        if self.timeout_s <= 0:
+            raise ValueError("timeout_s must be > 0")
+
+
+@dataclass(frozen=True)
 class HuggingFaceConfig:
     """Configuration for HuggingFace Inference API reranking."""
 

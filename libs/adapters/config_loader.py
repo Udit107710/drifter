@@ -19,6 +19,7 @@ from libs.adapters.config import (
     GeminiConfig,
     HuggingFaceConfig,
     LangfuseConfig,
+    LocalRerankerConfig,
     OllamaConfig,
     OpenAIConfig,
     OpenRouterConfig,
@@ -29,6 +30,7 @@ from libs.adapters.config import (
     TikaConfig,
     UnstructuredConfig,
     VllmConfig,
+    VllmEmbeddingsConfig,
 )
 
 logger = logging.getLogger(__name__)
@@ -58,10 +60,12 @@ class DrifterConfig:
     tei: TeiConfig | None = None
     ollama: OllamaConfig | None = None
     vllm: VllmConfig | None = None
+    vllm_embeddings: VllmEmbeddingsConfig | None = None
     openrouter: OpenRouterConfig | None = None
     openai: OpenAIConfig | None = None
     gemini: GeminiConfig | None = None
     huggingface: HuggingFaceConfig | None = None
+    local_reranker: LocalRerankerConfig | None = None
     otel: OtelConfig | None = None
     langfuse: LangfuseConfig | None = None
     unstructured: UnstructuredConfig | None = None
@@ -105,10 +109,12 @@ def _build_config(raw: dict[str, Any]) -> DrifterConfig:
         tei=_build_tei(raw.get("tei")),
         ollama=_build_ollama(raw.get("ollama")),
         vllm=_build_vllm(raw.get("vllm")),
+        vllm_embeddings=_build_vllm_embeddings(raw.get("vllm_embeddings")),
         openrouter=_build_openrouter(raw.get("openrouter")),
         openai=_build_openai(raw.get("openai")),
         gemini=_build_gemini(raw.get("gemini")),
         huggingface=_build_huggingface(raw.get("huggingface")),
+        local_reranker=_build_local_reranker(raw.get("local_reranker")),
         otel=_build_otel(raw.get("otel")),
         langfuse=_build_langfuse(raw.get("langfuse")),
         unstructured=_build_unstructured(raw.get("unstructured")),
@@ -221,6 +227,17 @@ def _build_vllm(section: dict[str, Any] | None) -> VllmConfig | None:
     return VllmConfig(**kwargs)
 
 
+def _build_vllm_embeddings(section: dict[str, Any] | None) -> VllmEmbeddingsConfig | None:
+    if section is None:
+        return None
+    return VllmEmbeddingsConfig(
+        base_url=section.get("base_url", "http://localhost:8001"),
+        model_id=section.get("model_id", ""),
+        timeout_s=float(section.get("timeout_s", 30.0)),
+        max_batch_size=int(section.get("max_batch_size", 32)),
+    )
+
+
 def _build_openrouter(section: dict[str, Any] | None) -> OpenRouterConfig | None:
     if section is None:
         return None
@@ -281,6 +298,15 @@ def _build_huggingface(section: dict[str, Any] | None) -> HuggingFaceConfig | No
         api_key=api_key,
         reranker_model=section.get("reranker_model", "BAAI/bge-reranker-v2-m3"),
         provider=section.get("provider", "hf-inference"),
+        timeout_s=float(section.get("timeout_s", 30.0)),
+    )
+
+
+def _build_local_reranker(section: dict[str, Any] | None) -> LocalRerankerConfig | None:
+    if section is None:
+        return None
+    return LocalRerankerConfig(
+        model_id=section.get("model_id", "BAAI/bge-reranker-v2-m3"),
         timeout_s=float(section.get("timeout_s", 30.0)),
     )
 
