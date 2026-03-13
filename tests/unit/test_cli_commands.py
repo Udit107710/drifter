@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from io import StringIO
 from unittest.mock import patch
 
@@ -10,6 +11,21 @@ import pytest
 
 from apps.cli.errors import EXIT_INPUT_ERROR, EXIT_SUCCESS
 from apps.cli.main import _parse_config_overrides, build_parser, main
+
+# Point at nonexistent config/env so tests always use in-memory adapters,
+# regardless of whether config.yaml or .env exist in the project root.
+_NO_CONFIG = [
+    "--config-file", "/dev/null/nonexistent.yaml",
+    "--env-file", "/dev/null/nonexistent.env",
+]
+
+
+@pytest.fixture(autouse=True)
+def _clean_drifter_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Remove all DRIFTER_* env vars so tests use in-memory adapters."""
+    for key in list(os.environ):
+        if key.startswith("DRIFTER_"):
+            monkeypatch.delenv(key, raising=False)
 
 
 class TestParseConfigOverrides:
@@ -94,14 +110,14 @@ class TestMainEntryPoint:
         """drifter ask should work with no data (returns no_results)."""
         with patch("sys.stdout", new_callable=StringIO), \
              patch("sys.stderr", new_callable=StringIO):
-            code = main(["ask", "test question"])
+            code = main([*_NO_CONFIG, "ask", "test question"])
         assert code == EXIT_SUCCESS  # no_results maps to success
 
     def test_ask_json_output(self) -> None:
         """drifter ask --json should produce valid JSON."""
         with patch("sys.stdout", new_callable=StringIO) as stdout, \
              patch("sys.stderr", new_callable=StringIO):
-            main(["--json", "ask", "test question"])
+            main([*_NO_CONFIG, "--json", "ask", "test question"])
             output = json.loads(stdout.getvalue())
 
         assert "trace_id" in output
@@ -111,14 +127,14 @@ class TestMainEntryPoint:
     def test_retrieve_command(self) -> None:
         with patch("sys.stdout", new_callable=StringIO), \
              patch("sys.stderr", new_callable=StringIO):
-            code = main(["retrieve", "test query"])
+            code = main([*_NO_CONFIG, "retrieve", "test query"])
         assert code == EXIT_SUCCESS  # no_results maps to success
 
     def test_debug_query_outputs_json(self) -> None:
         """debug-query always outputs JSON."""
         with patch("sys.stdout", new_callable=StringIO) as stdout, \
              patch("sys.stderr", new_callable=StringIO):
-            main(["debug-query", "test question"])
+            main([*_NO_CONFIG, "debug-query", "test question"])
             output = json.loads(stdout.getvalue())
 
         assert "trace_id" in output
@@ -128,12 +144,12 @@ class TestMainEntryPoint:
         """--config with secret fields should fail."""
         with patch("sys.stdout", new_callable=StringIO), \
              patch("sys.stderr", new_callable=StringIO):
-            code = main(["--config", "api_key=bad", "ask", "test"])
+            code = main([*_NO_CONFIG, "--config", "api_key=bad", "ask", "test"])
         from apps.cli.errors import EXIT_CONFIG_ERROR
         assert code == EXIT_CONFIG_ERROR
 
     def test_config_override_works(self) -> None:
         with patch("sys.stdout", new_callable=StringIO), \
              patch("sys.stderr", new_callable=StringIO):
-            code = main(["--config", "token_budget=5000", "ask", "test"])
+            code = main([*_NO_CONFIG, "--config", "token_budget=5000", "ask", "test"])
         assert code == EXIT_SUCCESS
