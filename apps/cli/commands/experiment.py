@@ -1,4 +1,4 @@
-"""rag experiment — run experiments and compare runs."""
+"""drifter experiment — run experiments and compare runs."""
 
 from __future__ import annotations
 

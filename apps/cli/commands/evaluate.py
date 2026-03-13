@@ -1,4 +1,4 @@
-"""rag evaluate — run retrieval evaluation."""
+"""drifter evaluate — run retrieval evaluation."""
 
 from __future__ import annotations
 

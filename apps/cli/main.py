@@ -1,6 +1,6 @@
 """CLI entry point for Drifter RAG system.
 
-Usage: rag <command> [options]
+Usage: drifter <command> [options]
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ from orchestrators.bootstrap import create_registry
 def build_parser() -> argparse.ArgumentParser:
     """Build the argparse parser with all subcommands."""
     parser = argparse.ArgumentParser(
-        prog="rag",
+        prog="drifter",
         description="Drifter RAG System CLI",
     )
 

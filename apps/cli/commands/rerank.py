@@ -1,4 +1,4 @@
-"""rag rerank — run retrieval + reranking."""
+"""drifter rerank — run retrieval + reranking."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""rag ask — full end-to-end pipeline, display answer."""
+"""drifter ask — full end-to-end pipeline, display answer."""
 
 from __future__ import annotations
 

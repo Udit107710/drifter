@@ -1,4 +1,4 @@
-"""rag debug-query — full pipeline with all debug information."""
+"""drifter debug-query — full pipeline with all debug information."""
 
 from __future__ import annotations
 

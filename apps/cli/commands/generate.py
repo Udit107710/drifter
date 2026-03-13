@@ -1,4 +1,4 @@
-"""rag generate — full pipeline, show generation result."""
+"""drifter generate — full pipeline, show generation result."""
 
 from __future__ import annotations
 

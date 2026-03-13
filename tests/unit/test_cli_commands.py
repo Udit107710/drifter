@@ -91,14 +91,14 @@ class TestMainEntryPoint:
         assert code == EXIT_INPUT_ERROR
 
     def test_ask_with_empty_stores(self) -> None:
-        """rag ask should work with no data (returns no_results)."""
+        """drifter ask should work with no data (returns no_results)."""
         with patch("sys.stdout", new_callable=StringIO), \
              patch("sys.stderr", new_callable=StringIO):
             code = main(["ask", "test question"])
         assert code == EXIT_SUCCESS  # no_results maps to success
 
     def test_ask_json_output(self) -> None:
-        """rag ask --json should produce valid JSON."""
+        """drifter ask --json should produce valid JSON."""
         with patch("sys.stdout", new_callable=StringIO) as stdout, \
              patch("sys.stderr", new_callable=StringIO):
             main(["--json", "ask", "test question"])

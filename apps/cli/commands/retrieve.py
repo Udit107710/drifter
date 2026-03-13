@@ -1,4 +1,4 @@
-"""rag retrieve — run retrieval only."""
+"""drifter retrieve — run retrieval only."""
 
 from __future__ import annotations
 

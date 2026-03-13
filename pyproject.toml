@@ -39,7 +39,7 @@ observability = [
 ]
 
 [project.scripts]
-rag = "apps.cli.main:main"
+drifter = "apps.cli.main:main"
 
 [build-system]
 requires = ["hatchling"]

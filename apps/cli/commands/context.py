@@ -1,4 +1,4 @@
-"""rag build-context — retrieve + rerank + context pack."""
+"""drifter build-context — retrieve + rerank + context pack."""
 
 from __future__ import annotations
 

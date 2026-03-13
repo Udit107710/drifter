@@ -1,4 +1,4 @@
-"""rag index — index previously ingested chunks."""
+"""drifter index — index previously ingested chunks."""
 
 from __future__ import annotations
 
@@ -27,5 +27,7 @@ def handle(
         )
         return EXIT_FAILED
 
-    renderer.render_error("Indexing requires previously ingested chunks. Use 'rag ingest' first.")
+    renderer.render_error(
+        "Indexing requires previously ingested chunks. Use 'drifter ingest' first."
+    )
     return EXIT_FAILED

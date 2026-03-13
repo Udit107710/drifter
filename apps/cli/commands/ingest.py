@@ -1,4 +1,4 @@
-"""rag ingest — run ingestion pipeline on local files."""
+"""drifter ingest — run ingestion pipeline on local files."""
 
 from __future__ import annotations
 
