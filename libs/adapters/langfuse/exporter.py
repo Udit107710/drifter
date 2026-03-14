@@ -28,6 +28,7 @@ import contextlib
 import json
 import logging
 import threading
+import time
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
@@ -61,30 +62,55 @@ class SpanBuffer(Protocol):
 
 
 class InMemorySpanBuffer:
-    """Thread-safe in-memory buffer. Simple, zero-dependency default."""
+    """Thread-safe in-memory buffer with TTL for orphan cleanup.
 
-    def __init__(self) -> None:
+    Traces whose root span never arrives are cleaned up after ``ttl_s``
+    seconds to prevent unbounded memory growth in long-running processes.
+    """
+
+    def __init__(self, ttl_s: int = 300) -> None:
         self._lock = threading.Lock()
-        self._pending: dict[str, list[Span]] = {}
+        self._pending: dict[str, tuple[list[Span], float]] = {}
+        self._ttl_s = ttl_s
 
     def push(self, trace_id: str, span: Span) -> None:
         with self._lock:
-            self._pending.setdefault(trace_id, []).append(span)
+            if trace_id in self._pending:
+                self._pending[trace_id][0].append(span)
+            else:
+                self._pending[trace_id] = ([span], time.monotonic())
 
     def pop_all(self, trace_id: str) -> list[Span]:
         with self._lock:
-            return self._pending.pop(trace_id, [])
+            self._evict_expired()
+            entry = self._pending.pop(trace_id, None)
+            return entry[0] if entry else []
 
     def drain(self) -> list[Span]:
         with self._lock:
             all_spans: list[Span] = []
-            for spans in self._pending.values():
+            for spans, _ in self._pending.values():
                 all_spans.extend(spans)
             self._pending.clear()
             return all_spans
 
     def close(self) -> None:
         pass
+
+    def _evict_expired(self) -> None:
+        """Remove traces older than TTL (called under lock)."""
+        now = time.monotonic()
+        expired = [
+            tid for tid, (_, created_at) in self._pending.items()
+            if now - created_at > self._ttl_s
+        ]
+        for tid in expired:
+            count = len(self._pending[tid][0])
+            logger.warning(
+                "Evicting %d orphaned spans for trace %s (no root after %ds)",
+                count, tid, self._ttl_s,
+            )
+            del self._pending[tid]
 
 
 class RedisSpanBuffer:
