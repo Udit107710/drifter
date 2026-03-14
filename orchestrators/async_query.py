@@ -1,4 +1,9 @@
-"""Async query orchestrator: async retrieval, sync reranking/context/generation."""
+"""Async query orchestrator: async retrieval, sync reranking/context/generation.
+
+Reuses the shared stage runners (reranking, context building, generation)
+from ``QueryOrchestrator`` — only the retrieval stage differs (async fanout
+via ``AsyncRetrievalBroker``).
+"""
 
 from __future__ import annotations
 
@@ -13,14 +18,16 @@ from libs.observability.tracer import Tracer
 from libs.reranking.converters import fused_list_to_retrieval_candidates
 from libs.reranking.service import RerankerService
 from libs.retrieval.broker.async_service import AsyncRetrievalBroker
-from libs.retrieval.broker.models import BrokerOutcome
-from orchestrators.query import QueryResult
+from libs.retrieval.broker.models import BrokerOutcome, BrokerResult
+from libs.retrieval.broker.service import RetrievalBroker
+from orchestrators.query import QueryOrchestrator, QueryResult
 
 logger = logging.getLogger(__name__)
 
 
-class AsyncQueryOrchestrator:
-    """Async pipeline: async retrieval, sync reranking/context/generation."""
+class AsyncQueryOrchestrator(QueryOrchestrator):
+    """Async pipeline: async retrieval, then delegates stages 2-4 to the
+    sync runners inherited from ``QueryOrchestrator``."""
 
     def __init__(
         self,
@@ -30,15 +37,22 @@ class AsyncQueryOrchestrator:
         context_builder_service: ContextBuilderService,
         generation_service: GenerationService,
         token_budget: int = 3000,
+        retrieval_broker: RetrievalBroker | None = None,
     ) -> None:
-        self._tracer = tracer
-        self._broker = async_retrieval_broker
-        self._reranker = reranker_service
-        self._context_builder = context_builder_service
-        self._generator = generation_service
-        self._token_budget = token_budget
+        # Supply a no-op sync broker when none given — async path never uses it.
+        if retrieval_broker is None:
+            retrieval_broker = _NoOpBroker()  # type: ignore[assignment]
+        super().__init__(
+            tracer=tracer,
+            retrieval_broker=retrieval_broker,
+            reranker_service=reranker_service,
+            context_builder_service=context_builder_service,
+            generation_service=generation_service,
+            token_budget=token_budget,
+        )
+        self._async_broker = async_retrieval_broker
 
-    async def run(
+    async def async_run(
         self,
         query: str,
         trace_id: str | None = None,
@@ -67,10 +81,14 @@ class AsyncQueryOrchestrator:
             )
 
             # Stage 1: Async retrieval
-            broker_result = await self._broker.run(retrieval_query)
+            broker_result = await self._async_broker.run(retrieval_query)
 
             if broker_result.outcome == BrokerOutcome.FAILED:
-                result = QueryResult(
+                record_stage_result(
+                    root, outcome="failed",
+                    input_count=1, output_count=0,
+                )
+                return QueryResult(
                     trace_id=ctx.trace_id,
                     query=query,
                     broker_result=broker_result,
@@ -81,35 +99,30 @@ class AsyncQueryOrchestrator:
                         + "; ".join(broker_result.errors)
                     ],
                 )
-                record_stage_result(
-                    root, outcome="failed",
-                    input_count=1, output_count=0,
-                )
-                return result
 
             if broker_result.outcome == BrokerOutcome.NO_RESULTS:
-                result = QueryResult(
+                record_stage_result(
+                    root, outcome="no_results",
+                    input_count=1, output_count=0,
+                )
+                return QueryResult(
                     trace_id=ctx.trace_id,
                     query=query,
                     broker_result=broker_result,
                     total_latency_ms=_elapsed_ms(start),
                     outcome="no_results",
                 )
-                record_stage_result(
-                    root, outcome="no_results",
-                    input_count=1, output_count=0,
-                )
-                return result
 
-            # Stage 2: Sync reranking
+            # Stages 2-4: Reuse sync runners from QueryOrchestrator
             errors: list[str] = []
             candidates = fused_list_to_retrieval_candidates(
                 broker_result.candidates,
             )
+
             reranker_result = None
             try:
-                reranker_result = self._reranker.run(
-                    candidates, retrieval_query,
+                reranker_result = self._run_reranking(
+                    ctx, candidates, retrieval_query,
                 )
                 ranked = reranker_result.ranked_candidates
             except Exception as exc:
@@ -129,14 +142,11 @@ class AsyncQueryOrchestrator:
                     for i, c in enumerate(candidates)
                 ]
 
-            # Stage 3: Sync context building
-            builder_result = self._context_builder.run(
-                ranked, query, budget,
+            builder_result = self._run_context_build(
+                ctx, ranked, query, budget,
             )
-
-            # Stage 4: Sync generation
-            generation_result = self._generator.run(
-                builder_result.context_pack, ctx.trace_id,
+            generation_result = self._run_generation(
+                ctx, builder_result, ctx.trace_id,
             )
 
             outcome = "success" if not errors else "partial"
@@ -164,6 +174,13 @@ class AsyncQueryOrchestrator:
                 ctx.trace_id, result.outcome, result.total_latency_ms,
             )
             return result
+
+
+class _NoOpBroker:
+    """Placeholder broker that is never called — satisfies the parent __init__."""
+
+    def run(self, query: RetrievalQuery) -> BrokerResult:
+        raise RuntimeError("_NoOpBroker.run() should never be called")
 
 
 def _elapsed_ms(start: float) -> float:

@@ -105,7 +105,7 @@ def _make_async_orchestrator() -> tuple[
 class TestAsyncQueryOrchestrator:
     async def test_empty_stores_returns_no_results(self) -> None:
         orchestrator, _, _ = _make_async_orchestrator()
-        result = await orchestrator.run("test query")
+        result = await orchestrator.async_run("test query")
         assert isinstance(result, QueryResult)
         assert result.outcome == "no_results"
 
@@ -114,11 +114,11 @@ class TestAsyncQueryOrchestrator:
         chunk = _make_chunk("c1", "machine learning is a branch of AI")
         ls.add(chunk)
 
-        result = await orchestrator.run("machine learning")
+        result = await orchestrator.async_run("machine learning")
         assert result.broker_result is not None
         assert result.broker_result.candidate_count > 0
 
     async def test_trace_id_propagation(self) -> None:
         orchestrator, _, _ = _make_async_orchestrator()
-        result = await orchestrator.run("test", trace_id="async-trace-1")
+        result = await orchestrator.async_run("test", trace_id="async-trace-1")
         assert result.trace_id == "async-trace-1"
