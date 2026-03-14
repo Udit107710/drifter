@@ -165,7 +165,7 @@ def _build_opensearch(section: dict[str, Any] | None) -> OpenSearchConfig | None
         username=section.get("username", "admin"),
         password=_env_or("DRIFTER_OPENSEARCH_PASSWORD", section.get("password"), "admin"),
         index_prefix=section.get("index_prefix", "drifter"),
-        use_ssl=bool(section.get("use_ssl", True)),
+        use_ssl=bool(section.get("use_ssl", False)),
         timeout_s=float(section.get("timeout_s", 10.0)),
     )
 
