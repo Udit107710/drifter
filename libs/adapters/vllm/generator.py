@@ -122,7 +122,7 @@ class VllmGenerator:
         answer_text = choice.get("content", "")
 
         # vLLM thinking models put reasoning in `reasoning` field
-        reasoning = choice.get("reasoning", "")
+        reasoning = choice.get("reasoning", "") or ""
         if reasoning:
             logger.debug("vLLM model returned %d chars of reasoning", len(reasoning))
 
@@ -149,6 +149,7 @@ class VllmGenerator:
         usage = data.get("usage", {})
         prompt_tokens = usage.get("prompt_tokens", len(request.rendered_prompt.split()))
         completion_tokens = usage.get("completion_tokens", len(answer_text.split()))
+        thinking_tokens = len(reasoning.split()) if reasoning else 0
 
         citations = _extract_citations(answer_text, request.context_chunk_ids)
 
@@ -160,8 +161,10 @@ class VllmGenerator:
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
                 total_tokens=prompt_tokens + completion_tokens,
+                thinking_tokens=thinking_tokens,
             ),
             trace_id=request.trace_id,
+            thinking=reasoning or None,
         )
 
     def _generate_streaming(
@@ -214,6 +217,7 @@ class VllmGenerator:
                     completion_tokens = usage.get("completion_tokens", 0)
 
         answer_text = "".join(answer_parts).strip()
+        reasoning_text = "".join(reasoning_parts)
         answer_text = re.sub(
             r"<think>.*?</think>", "", answer_text, flags=re.DOTALL,
         ).strip()
@@ -228,6 +232,7 @@ class VllmGenerator:
             prompt_tokens = len(request.rendered_prompt.split())
         if not completion_tokens:
             completion_tokens = len(answer_text.split())
+        thinking_tokens = len(reasoning_text.split()) if reasoning_text else 0
 
         citations = _extract_citations(answer_text, request.context_chunk_ids)
 
@@ -239,8 +244,10 @@ class VllmGenerator:
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
                 total_tokens=prompt_tokens + completion_tokens,
+                thinking_tokens=thinking_tokens,
             ),
             trace_id=request.trace_id,
+            thinking=reasoning_text or None,
         )
 
 

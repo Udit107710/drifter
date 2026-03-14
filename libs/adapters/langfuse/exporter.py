@@ -351,6 +351,7 @@ class LangfuseSpanExporter:
         model = attrs.get("model_id") or attrs.get("generator_id", "unknown")
         prompt_tokens = attrs.get("prompt_tokens")
         completion_tokens = attrs.get("completion_tokens")
+        thinking_tokens = attrs.get("thinking_tokens")
 
         usage_details: dict[str, int] | None = None
         if prompt_tokens is not None or completion_tokens is not None:
@@ -359,6 +360,13 @@ class LangfuseSpanExporter:
                 usage_details["input"] = int(prompt_tokens)
             if completion_tokens is not None and int(completion_tokens) > 0:
                 usage_details["output"] = int(completion_tokens)
+            if thinking_tokens is not None and int(thinking_tokens) > 0:
+                usage_details["reasoning"] = int(thinking_tokens)
+
+        # Include thinking content in metadata if present
+        thinking_content = attrs.get("thinking")
+        if thinking_content:
+            metadata["thinking"] = thinking_content
 
         lf_gen = self._client.start_observation(
             trace_context=trace_ctx,
@@ -410,7 +418,7 @@ def _build_metadata(span: Span) -> dict[str, Any]:
     excluded = {
         "pipeline.stage", "outcome", "input_count", "output_count",
         "error_count", "model_id", "generator_id",
-        "prompt_tokens", "completion_tokens",
+        "prompt_tokens", "completion_tokens", "thinking_tokens", "thinking",
     }
     return {
         k: v for k, v in span.attributes.items()

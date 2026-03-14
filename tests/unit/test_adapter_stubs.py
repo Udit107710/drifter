@@ -70,19 +70,19 @@ class TestProtocolCompliance:
 
 class TestStubLifecycle:
     def test_tei_embedding_lifecycle(self) -> None:
-        p = TeiEmbeddingProvider(TeiConfig())
+        p = TeiEmbeddingProvider(TeiConfig(base_url="http://192.0.2.1:1"))
         p.connect()
         assert p.health_check() is False
         p.close()
 
     def test_tei_query_embedder_lifecycle(self) -> None:
-        e = TeiQueryEmbedder(TeiConfig())
+        e = TeiQueryEmbedder(TeiConfig(base_url="http://192.0.2.1:1"))
         e.connect()
         assert e.health_check() is False
         e.close()
 
     def test_tei_cross_encoder_lifecycle(self) -> None:
-        r = TeiCrossEncoderReranker(TeiConfig(), "model")
+        r = TeiCrossEncoderReranker(TeiConfig(base_url="http://192.0.2.1:1"), "model")
         r.connect()
         assert r.health_check() is False
         r.close()

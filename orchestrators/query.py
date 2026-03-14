@@ -372,6 +372,10 @@ class QueryOrchestrator:
                 span.set_attribute("model_id", result.answer.model_id)
                 span.set_attribute("prompt_tokens", result.answer.token_usage.prompt_tokens)
                 span.set_attribute("completion_tokens", result.answer.token_usage.completion_tokens)
+                if result.answer.token_usage.thinking_tokens:
+                    span.set_attribute("thinking_tokens", result.answer.token_usage.thinking_tokens)
+                if result.answer.thinking:
+                    span.set_attribute("thinking", result.answer.thinking)
             return result
 
 

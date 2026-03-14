@@ -130,6 +130,7 @@ class OllamaGenerator:
 
         message = data.get("message", {})
         answer_text = message.get("content", "")
+        thinking = message.get("thinking", "") or ""
 
         # Thinking models put reasoning in the `thinking` field and
         # the answer in `content`.  Strip residual <think> blocks.
@@ -138,7 +139,6 @@ class OllamaGenerator:
         ).strip()
 
         if not answer_text:
-            thinking = message.get("thinking", "")
             if thinking:
                 logger.warning(
                     "Ollama model %s returned empty content with %d chars "
@@ -162,6 +162,7 @@ class OllamaGenerator:
             prompt_tokens = len(request.rendered_prompt.split())
         if not completion_tokens:
             completion_tokens = len(answer_text.split())
+        thinking_tokens = len(thinking.split()) if thinking else 0
 
         citations = _extract_citations(
             answer_text, request.context_chunk_ids,
@@ -175,8 +176,10 @@ class OllamaGenerator:
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
                 total_tokens=prompt_tokens + completion_tokens,
+                thinking_tokens=thinking_tokens,
             ),
             trace_id=request.trace_id,
+            thinking=thinking or None,
         )
 
     def _generate_streaming(
@@ -228,6 +231,7 @@ class OllamaGenerator:
                     completion_tokens = chunk.get("eval_count", 0)
 
         answer_text = "".join(answer_parts)
+        thinking_text = "".join(thinking_parts)
         answer_text = re.sub(
             r"<think>.*?</think>", "", answer_text, flags=re.DOTALL,
         ).strip()
@@ -242,6 +246,7 @@ class OllamaGenerator:
             prompt_tokens = len(request.rendered_prompt.split())
         if not completion_tokens:
             completion_tokens = len(answer_text.split())
+        thinking_tokens = len(thinking_text.split()) if thinking_text else 0
 
         citations = _extract_citations(
             answer_text, request.context_chunk_ids,
@@ -255,8 +260,10 @@ class OllamaGenerator:
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
                 total_tokens=prompt_tokens + completion_tokens,
+                thinking_tokens=thinking_tokens,
             ),
             trace_id=request.trace_id,
+            thinking=thinking_text or None,
         )
 
 

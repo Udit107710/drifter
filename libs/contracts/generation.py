@@ -14,12 +14,15 @@ class TokenUsage:
     prompt_tokens: int
     completion_tokens: int
     total_tokens: int
+    thinking_tokens: int = 0
 
     def __post_init__(self) -> None:
         if self.prompt_tokens < 0:
             raise ValueError("prompt_tokens must be >= 0")
         if self.completion_tokens < 0:
             raise ValueError("completion_tokens must be >= 0")
+        if self.thinking_tokens < 0:
+            raise ValueError("thinking_tokens must be >= 0")
         if self.total_tokens != self.prompt_tokens + self.completion_tokens:
             raise ValueError("total_tokens must equal prompt_tokens + completion_tokens")
 
@@ -57,6 +60,7 @@ class GeneratedAnswer:
     model_id: str
     token_usage: TokenUsage
     trace_id: TraceId
+    thinking: str | None = None
     schema_version: int = 1
 
     def __post_init__(self) -> None:
