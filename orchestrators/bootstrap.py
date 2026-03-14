@@ -66,6 +66,7 @@ from libs.parsing.parsers.plain_text import PlainTextParser
 from libs.reranking.feature_reranker import FeatureBasedReranker
 from libs.reranking.service import RerankerService
 from libs.resilience import RetryConfig
+from libs.retrieval.broker.async_protocols import SyncToAsyncEmbedder
 from libs.retrieval.broker.async_service import AsyncRetrievalBroker
 from libs.retrieval.broker.models import BrokerConfig
 from libs.retrieval.broker.service import RetrievalBroker
@@ -154,10 +155,41 @@ def _has_yaml_config(cfg: DrifterConfig) -> bool:
     ])
 
 
+_VALID_GENERATION_PROVIDERS = frozenset({"ollama", "vllm", "openai", "openrouter", "gemini", ""})
+_VALID_EMBEDDINGS_PROVIDERS = frozenset({"tei", "ollama", "vllm", "openrouter", ""})
+_VALID_RERANKING_PROVIDERS = frozenset({"local", "tei", "huggingface", "feature", ""})
+_VALID_OBSERVABILITY_PROVIDERS = frozenset({"langfuse", "otel", ""})
+
+
+def _validate_providers(cfg: DrifterConfig) -> None:
+    """Validate provider names at startup — fail fast on typos."""
+    if cfg.generation_provider not in _VALID_GENERATION_PROVIDERS:
+        raise ValueError(
+            f"Unknown generation.provider: {cfg.generation_provider!r}. "
+            f"Valid: {', '.join(sorted(_VALID_GENERATION_PROVIDERS - {''}))}"
+        )
+    if cfg.embeddings_provider not in _VALID_EMBEDDINGS_PROVIDERS:
+        raise ValueError(
+            f"Unknown embeddings.provider: {cfg.embeddings_provider!r}. "
+            f"Valid: {', '.join(sorted(_VALID_EMBEDDINGS_PROVIDERS - {''}))}"
+        )
+    if cfg.reranking_provider not in _VALID_RERANKING_PROVIDERS:
+        raise ValueError(
+            f"Unknown reranking.provider: {cfg.reranking_provider!r}. "
+            f"Valid: {', '.join(sorted(_VALID_RERANKING_PROVIDERS - {''}))}"
+        )
+    if cfg.observability_provider not in _VALID_OBSERVABILITY_PROVIDERS:
+        raise ValueError(
+            f"Unknown observability.provider: {cfg.observability_provider!r}. "
+            f"Valid: {', '.join(sorted(_VALID_OBSERVABILITY_PROVIDERS - {''}))}"
+        )
+
+
 def _create_from_config(
     cfg: DrifterConfig, overrides: dict[str, Any],
 ) -> ServiceRegistry:
     """Create registry from DrifterConfig (YAML-based)."""
+    _validate_providers(cfg)
     token_budget = int(overrides.get("token_budget", cfg.token_budget))
 
     # --- Observability ---
@@ -235,17 +267,10 @@ def _create_from_config(
     async_vector = AsyncMemoryVectorStore(vector_store)
     async_lexical = AsyncMemoryLexicalStore(lexical_store)
 
-    class _SyncToAsyncEmbedder:
-        def __init__(self, inner: object) -> None:
-            self._inner = inner
-
-        async def async_embed_query(self, text: str) -> list[float]:
-            return self._inner.embed_query(text)  # type: ignore[union-attr]
-
     async_retrieval_broker = AsyncRetrievalBroker(
         vector_store=async_vector,
         lexical_store=async_lexical,
-        query_embedder=_SyncToAsyncEmbedder(query_embedder),
+        query_embedder=SyncToAsyncEmbedder(query_embedder),
         config=broker_config,
         retry_config=retry_config,
     )
@@ -481,19 +506,10 @@ def _create_from_env(overrides: dict[str, Any]) -> ServiceRegistry:
     async_vector = AsyncMemoryVectorStore(vector_store)
     async_lexical = AsyncMemoryLexicalStore(lexical_store)
 
-    class _SyncToAsyncEmbedder:
-        """Wraps a sync QueryEmbedder as AsyncQueryEmbedder."""
-
-        def __init__(self, inner: object) -> None:
-            self._inner = inner
-
-        async def async_embed_query(self, text: str) -> list[float]:
-            return self._inner.embed_query(text)  # type: ignore[union-attr]
-
     async_retrieval_broker = AsyncRetrievalBroker(
         vector_store=async_vector,
         lexical_store=async_lexical,
-        query_embedder=_SyncToAsyncEmbedder(query_embedder),
+        query_embedder=SyncToAsyncEmbedder(query_embedder),
         config=broker_config,
         retry_config=retry_config,
     )
