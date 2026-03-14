@@ -128,7 +128,7 @@ libs/                   Core libraries (one per subsystem)
     otel/               OpenTelemetry span exporter
 
 tests/
-  unit/                 Deterministic tests (819 tests, ~0.3s, no external services)
+  unit/                 Deterministic tests (777 tests, ~0.3s, no external services)
   integration/          Integration tests (planned)
   fixtures/             Sample documents for testing
 
@@ -208,7 +208,7 @@ Secret fields (`api_key`, `password`, `auth`) are rejected from `--config` for s
 All tests are deterministic and local. No external services required.
 
 ```bash
-make test          # Run all 819 tests
+make test          # Run all 777 tests
 make test-unit     # Unit tests only
 make lint          # Ruff linting
 make typecheck     # mypy strict mode

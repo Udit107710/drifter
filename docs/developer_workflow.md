@@ -89,11 +89,15 @@ Configure in `config.yaml`:
 ```yaml
 generation:
   provider: vllm
-  vllm_url: http://localhost:8000
 
 embeddings:
   provider: vllm
-  vllm_url: http://localhost:8001
+
+vllm:
+  base_url: http://localhost:8000
+
+vllm_embeddings:
+  base_url: http://localhost:8001
 ```
 
 #### TEI — Embeddings and Reranking (GPU)

@@ -5,7 +5,7 @@
 | Directory | Purpose |
 |---|---|
 | `apps/` | Application entry points that expose orchestrators to the outside world |
-| `apps/cli/` | Command-line interface (`rag` command). Thin argparse handlers, output rendering |
+| `apps/cli/` | Command-line interface (`drifter` command). Thin argparse handlers, output rendering |
 | `apps/api/` | Query-serving HTTP API (planned). Online, latency-sensitive, read-heavy |
 | `apps/worker/` | Background ingestion worker (planned). Offline, batch-oriented, write-heavy |
 | `apps/debugger_ui/` | Pipeline inspection UI (planned) for development and debugging |
